@@ -413,7 +413,7 @@ export default function MealCard({ meal }: Props) {
                   className={editInput}
                 />
               </div>
-              <div className="mt-2 grid grid-cols-4 gap-2">
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(
                   [
                     ["kcal", "칼로리"],

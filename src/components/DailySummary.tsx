@@ -260,7 +260,7 @@ export default function DailySummary() {
       </div>
 
       {/* 영양소 4칸: 탄 · 단 · 지 · 물 */}
-      <div className="mt-4 grid grid-cols-4 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MacroBar label="탄수화물" value={totals.carbs}   goal={target.carbs}   color="bg-amber-400"   />
         <MacroBar label="단백질"   value={totals.protein} goal={target.protein} color="bg-rose-400" />
         <MacroBar label="지방"     value={totals.fat}     goal={target.fat}     color="bg-violet-400"  />

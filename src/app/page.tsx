@@ -140,16 +140,16 @@ export default function Home() {
           <DailySummary />
 
           {/* 아침·점심·저녁 3열 */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <MealCard meal="breakfast" />
             <MealCard meal="lunch" />
             <MealCard meal="dinner" />
           </div>
 
-          {/* 간식·음료(1/3) + 물 섭취(2/3) */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* 간식·음료 + 물 섭취 */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <MealCard meal="snack" />
-            <div className="col-span-2 flex">
+            <div className="flex sm:col-span-2">
               <WaterTracker />
             </div>
           </div>
