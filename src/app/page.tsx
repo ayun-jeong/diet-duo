@@ -31,6 +31,7 @@ export default function Home() {
   const authLoading = useAuth((s) => s.loading);
   const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
+  const initAuth = useAuth((s) => s.initAuth);
 
   const [editing, setEditing] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -38,7 +39,8 @@ export default function Home() {
 
   useEffect(() => {
     init();
-  }, [init]);
+    initAuth();
+  }, [init, initAuth]);
 
   if (!ready || authLoading) {
     return (
@@ -107,7 +109,7 @@ export default function Home() {
                 <div className="flex items-center gap-1.5">
                   <span className="hidden items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 sm:flex">
                     <User className="h-3 w-3" />
-                    {user.email?.split("@")[0]}
+                    {(user.user_metadata?.name as string) ?? (user.user_metadata?.full_name as string) ?? user.email?.split("@")[0] ?? "로그인됨"}
                   </span>
                   <button
                     onClick={() => signOut()}
