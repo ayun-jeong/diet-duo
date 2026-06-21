@@ -477,13 +477,13 @@ export default function MealCard({ meal }: Props) {
                 </div>
               </div>
 
-              {/* 기본: kcal만 표시 */}
-              <span className="shrink-0 text-sm font-semibold text-gray-700 group-hover:hidden">
+              {/* 기본: kcal만 표시 (데스크탑, hover 전) */}
+              <span className="hidden shrink-0 text-sm font-semibold text-gray-700 sm:inline sm:group-hover:hidden">
                 {food.kcal}
               </span>
 
-              {/* hover 시: kcal(작게) + 버튼들 */}
-              <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+              {/* 버튼들: 모바일 항상 표시 / 데스크탑 hover 시 표시 */}
+              <div className="flex shrink-0 items-center gap-0.5 sm:hidden sm:group-hover:flex">
                 <span className="mr-1 text-xs font-semibold text-gray-500">{food.kcal}</span>
                 {/* 편집 */}
                 <button

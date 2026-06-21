@@ -188,7 +188,7 @@ export default function DailySummary() {
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
 
       {/* 상단 2열: 왼쪽(칼로리 정보 + 바) / 오른쪽(원그래프 전체 높이) */}
-      <div className="flex items-stretch gap-5">
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:gap-5">
 
         {/* 왼쪽: 섭취량(좌) + 남은량(우) + 진행바 */}
         <div className="flex flex-1 flex-col min-w-0">
@@ -253,8 +253,8 @@ export default function DailySummary() {
           </div>
         </div>
 
-        {/* 오른쪽: 원그래프 — 카드 높이 전체 */}
-        <div className="w-[120px] shrink-0">
+        {/* 오른쪽: 원그래프 */}
+        <div className="mx-auto w-[120px] shrink-0 sm:mx-0">
           <MacroPie carbsG={totals.carbs} proteinG={totals.protein} fatG={totals.fat} />
         </div>
       </div>

@@ -89,10 +89,10 @@ export default function ExerciseCard() {
       </div>
 
       {/* 본문: 운동(2) + 걸음수(1) */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
         {/* 운동 목록 + 입력 */}
-        <div className="col-span-2 flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 sm:col-span-2">
           <ul className="space-y-1.5">
             {exercises.map((ex) => (
               <li

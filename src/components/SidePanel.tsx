@@ -28,7 +28,7 @@ export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
 
       {/* 슬라이딩 패널 */}
       <div
-        className={`fixed right-0 top-0 z-50 flex h-full w-96 flex-col bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 sm:w-96 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
