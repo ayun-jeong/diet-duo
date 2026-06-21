@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const MODEL = "gemini-2.0-flash";
+const MODEL = "gemini-2.5-flash";
 
 // [운동명 정규식, MET값, 표준명]
 // MET 공식: burned = MET × weightKg × hours
@@ -46,7 +46,9 @@ const LOCAL_EXERCISES: [RegExp, number, string][] = [
   [/필라테스/, 3.5, "필라테스"],
   // 에어로빅·댄스
   [/에어로빅|댄스|줌바|zumba/, 6.0, "에어로빅"],
-  // 등
+  // 계단
+  [/계단|계단\s*오르기|계단\s*내려가기|계단\s*오르내리기/, 8.0, "계단 오르기"],
+  // 등산·하이킹 (중복 방지용 이미 위에 있으나 계단과 구분)
   [/클라이밍|암벽/, 8.0, "클라이밍"],
   // 스케이트
   [/스케이트|인라인/, 7.0, "인라인스케이트"],
@@ -58,6 +60,19 @@ const LOCAL_EXERCISES: [RegExp, number, string][] = [
   [/크로스핏|crossfit/, 8.0, "크로스핏"],
   // 복싱·격투
   [/복싱|킥복싱|무에타이|격투|유도|태권도/, 9.0, "복싱"],
+  // 홈트·기타
+  [/홈트|홈트레이닝/, 5.0, "홈트레이닝"],
+  [/힙힌지|데드리프트/, 6.0, "데드리프트"],
+  [/자전거\s*타기|실내\s*자전거|스피닝/, 6.5, "실내 자전거"],
+  [/수영\s*자유형|자유형/, 8.0, "자유형 수영"],
+  [/철봉|턱걸이|풀업/, 5.0, "철봉"],
+  [/런닝머신|트레드밀/, 8.0, "런닝머신"],
+  [/일립티컬|엘립티컬/, 5.0, "일립티컬"],
+  [/로잉|조정|로잉머신/, 7.0, "로잉머신"],
+  [/배드민턴\s*복식|배드민턴\s*단식/, 5.5, "배드민턴"],
+  [/피클볼|피클/, 4.5, "피클볼"],
+  [/서핑|파도타기/, 5.0, "서핑"],
+  [/카약|카누/, 5.0, "카약"],
 ];
 
 // "30분", "1시간", "1시간 30분", "45분" 등을 시간(h)으로 변환
@@ -116,6 +131,9 @@ interface ExerciseResult {
   burned: number;
 }
 
+// 서버 인메모리 캐시
+const exerciseCache = new Map<string, ExerciseResult>();
+
 function extractJson(text: string): ExerciseResult | null {
   const match = text.match(/\{[\s\S]*?\}/);
   if (!match) return null;
@@ -145,11 +163,12 @@ async function callGemini(
   return extractJson(result.response.text());
 }
 
-function is429(err: unknown): boolean {
+function isRetryable(err: unknown): boolean {
   if (!err) return false;
   const msg = String((err as { message?: string })?.message ?? "");
   return (
     msg.includes("429") ||
+    msg.includes("503") ||
     msg.includes("TooManyRequests") ||
     msg.includes("RESOURCE_EXHAUSTED")
   );
@@ -181,14 +200,19 @@ export async function POST(req: Request) {
   const local = lookupLocal(query, weightKg);
   if (local) return NextResponse.json(local);
 
-  // 2) Gemini (429 시 5초 후 재시도 1회)
+  // 2) 캐시 확인
+  const cacheKey = `${query.toLowerCase()}-${Math.round(weightKg)}`;
+  const cached = exerciseCache.get(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
+  // 3) Gemini (503/429 시 4초 후 재시도 1회)
   try {
     let parsed: ExerciseResult | null = null;
     try {
       parsed = await callGemini(apiKey, query, weightKg);
     } catch (err) {
-      if (is429(err)) {
-        await new Promise((r) => setTimeout(r, 5000));
+      if (isRetryable(err)) {
+        await new Promise((r) => setTimeout(r, 4000));
         parsed = await callGemini(apiKey, query, weightKg);
       } else {
         throw err;
@@ -201,10 +225,11 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
+    exerciseCache.set(cacheKey, parsed);
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("exercise lookup error", err);
-    if (is429(err)) {
+    if (isRetryable(err)) {
       return NextResponse.json(
         { error: "AI 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
         { status: 429 },
