@@ -1,57 +1,71 @@
 "use client";
 
+import { SessionProvider, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-store";
 import { setStorage, SupabaseAdapter, LocalStorageAdapter } from "@/lib/storage";
-import { useDiet } from "@/lib/store";
+import { useDiet, todayStr } from "@/lib/store";
+import type { AppUser } from "@/lib/auth-store";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+function AuthSync() {
+  const { data: session, status } = useSession();
   const setUser = useAuth((s) => s.setUser);
   const setLoading = useAuth((s) => s.setLoading);
 
   useEffect(() => {
-    if (!supabase) {
-      // Supabase 미설정 → localStorage 모드, auth 로딩 완료
-      setUser(null);
-      return;
-    }
+    if (status === "loading") return;
 
-    // 페이지 로드 시 기존 세션 확인
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setStorage(new SupabaseAdapter(supabase as any, session.user.id));
-        setUser(session.user);
-        useDiet.getState().init();
-      } else {
-        setUser(null);
-      }
-    });
+    const sync = async () => {
+      if (status === "authenticated" && session?.user) {
+        const userId = (session.user as AppUser & { id: string }).id;
+        const appUser: AppUser = { id: userId, name: session.user.name, image: session.user.image };
 
-    // 로그인/로그아웃 이벤트 감지
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setStorage(new SupabaseAdapter(supabase as any, session.user.id));
-        setUser(session.user);
-        if (event === "SIGNED_IN") {
-          await useDiet.getState().init();
+        if (supabase) {
+          const sbAdapter = new SupabaseAdapter(supabase, userId);
+          const lsAdapter = new LocalStorageAdapter();
+
+          // 처음 로그인 시 localStorage → Supabase 마이그레이션
+          const sbProfile = await sbAdapter.getProfile();
+          if (!sbProfile) {
+            const [lsProfile, lsSettings, lsFavorites, lsLog] = await Promise.all([
+              lsAdapter.getProfile(),
+              lsAdapter.getSettings(),
+              lsAdapter.getFavorites(),
+              lsAdapter.getDayLog(todayStr()),
+            ]);
+            await Promise.all([
+              lsProfile ? sbAdapter.saveProfile(lsProfile) : Promise.resolve(),
+              lsSettings ? sbAdapter.saveSettings(lsSettings) : Promise.resolve(),
+              lsFavorites.length > 0 ? sbAdapter.saveFavorites(lsFavorites) : Promise.resolve(),
+              lsLog ? sbAdapter.saveDayLog(lsLog) : Promise.resolve(),
+            ]);
+          }
+          setStorage(sbAdapter);
         }
+
+        setUser(appUser);
+        await useDiet.getState().init();
       } else {
         setStorage(new LocalStorageAdapter());
         setUser(null);
-        if (event === "SIGNED_OUT") {
-          setLoading(false);
-          await useDiet.getState().init();
-        }
+        await useDiet.getState().init();
       }
-    });
+      setLoading(false);
+    };
 
-    return () => subscription.unsubscribe();
-  }, [setUser, setLoading]);
+    sync();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, (session?.user as AppUser & { id?: string })?.id]);
 
-  return <>{children}</>;
+  return null;
+}
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthSync />
+      {children}
+    </SessionProvider>
+  );
 }

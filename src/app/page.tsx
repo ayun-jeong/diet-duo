@@ -19,7 +19,6 @@ import ProfileForm from "@/components/ProfileForm";
 import SidePanel, { type SidePanelTab } from "@/components/SidePanel";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
-import { supabase } from "@/lib/supabase";
 import { useDiet } from "@/lib/store";
 
 export default function Home() {
@@ -31,7 +30,6 @@ export default function Home() {
   const authLoading = useAuth((s) => s.loading);
   const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
-  const initAuth = useAuth((s) => s.initAuth);
 
   const [editing, setEditing] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -39,8 +37,7 @@ export default function Home() {
 
   useEffect(() => {
     init();
-    initAuth();
-  }, [init, initAuth]);
+  }, [init]);
 
   if (!ready || authLoading) {
     return (
@@ -104,30 +101,28 @@ export default function Home() {
               <Settings2 className="h-4 w-4" />
             </button>
 
-            {supabase && (
-              user ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="hidden items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 sm:flex">
-                    <User className="h-3 w-3" />
-                    {(user.user_metadata?.name as string) ?? (user.user_metadata?.full_name as string) ?? user.email?.split("@")[0] ?? "로그인됨"}
-                  </span>
-                  <button
-                    onClick={() => signOut()}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-                    title="로그아웃"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
+            {user ? (
+              <div className="flex items-center gap-1.5">
+                <span className="hidden items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 sm:flex">
+                  <User className="h-3 w-3" />
+                  {user.name ?? "카카오 유저"}
+                </span>
                 <button
-                  onClick={() => setAuthModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  onClick={() => signOut()}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                  title="로그아웃"
                 >
-                  <LogIn className="h-3.5 w-3.5" />
-                  로그인
+                  <LogOut className="h-4 w-4" />
                 </button>
-              )
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                로그인
+              </button>
             )}
           </div>
         </header>

@@ -2,7 +2,7 @@
 
 import { Loader2, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { signIn } from "next-auth/react";
 import { useAuth } from "@/lib/auth-store";
 
 function KakaoIcon() {
@@ -16,21 +16,13 @@ function KakaoIcon() {
 export default function AuthModal() {
   const open = useAuth((s) => s.authModalOpen);
   const setOpen = useAuth((s) => s.setAuthModalOpen);
-  const signInWithKakao = useAuth((s) => s.signInWithKakao);
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
-  const close = () => setOpen(false);
-
   const handleKakao = async () => {
     setLoading(true);
-    const err = await signInWithKakao();
-    if (err) {
-      toast.error(err);
-      setLoading(false);
-    }
-    // 성공 시 카카오 로그인 페이지로 리다이렉트됨
+    await signIn("kakao", { callbackUrl: "/" });
   };
 
   return (
@@ -38,7 +30,7 @@ export default function AuthModal() {
       <div className="relative w-full max-w-xs rounded-2xl bg-white p-8 shadow-2xl">
 
         <button
-          onClick={close}
+          onClick={() => setOpen(false)}
           className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:bg-gray-100"
         >
           <X className="h-4 w-4" />
@@ -56,11 +48,7 @@ export default function AuthModal() {
             className="flex w-full items-center justify-center gap-2.5 rounded-xl py-3 text-sm font-bold text-[#1A1A1A] transition hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: "#FEE500" }}
           >
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <KakaoIcon />
-            )}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <KakaoIcon />}
             카카오로 로그인
           </button>
 
