@@ -51,6 +51,8 @@ export async function POST(req: Request) {
   if (!refresh) {
     const cached = cache.get(cacheKey);
     if (cached) return NextResponse.json(cached);
+  } else {
+    cache.delete(cacheKey);
   }
 
   const label = MEAL_LABEL[mealType] ?? "식사";
@@ -65,8 +67,9 @@ export async function POST(req: Request) {
 오늘 남은 칼로리: ${remainingKcal}kcal
 이미 먹은 음식: ${eatenStr}
 
-아래 조건에 맞는 한국식 메뉴를 4가지 추천해줘.
+아래 조건에 맞는 메뉴 4가지를 추천해줘.
 - 1인분 칼로리 목표: ${targetKcal}
+- 한식·양식·일식·중식·분식 등 다양한 종류로 골고루 추천 (한식만 추천하지 말 것)
 - 영양 균형(탄단지)이 좋은 메뉴 위주
 - 이미 먹은 음식과 겹치지 않게
 - reason은 추천 이유를 10자 이내로
