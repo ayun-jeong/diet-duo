@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDiet } from "@/lib/store";
+import { apiUrl } from "@/lib/api";
 
 function stepsToKcal(steps: number, weightKg: number): number {
   return Math.round(steps * weightKg * 0.0005);
@@ -54,7 +55,7 @@ export default function ExerciseCard() {
     if (!q) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/exercise/lookup", {
+      const res = await fetch(apiUrl("/api/exercise/lookup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, weightKg: profile?.weightKg ?? 70 }),

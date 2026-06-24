@@ -26,6 +26,7 @@ import type { RecommendItem } from "@/app/api/food/recommend/route";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet } from "@/lib/store";
+import { apiUrl } from "@/lib/api";
 import { calcMacroTargets, sumDayTotals } from "@/lib/nutrition";
 import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
 import type { FavoriteFood } from "@/lib/types";
@@ -112,7 +113,7 @@ export default function MealCard({ meal }: Props) {
     const eatenFoods = (["breakfast", "lunch", "dinner", "snack"] as MealType[])
       .flatMap((m) => log.meals[m].map((f) => f.name));
     try {
-      const res = await fetch("/api/food/recommend", {
+      const res = await fetch(apiUrl("/api/food/recommend"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mealType: meal, remainingKcal, eatenFoods, refresh }),
@@ -162,7 +163,7 @@ export default function MealCard({ meal }: Props) {
     sugTimer.current = setTimeout(async () => {
       setSugLoading(true);
       try {
-        const res = await fetch(`/api/food/suggest?q=${encodeURIComponent(q)}`);
+        const res = await fetch(apiUrl(`/api/food/suggest?q=${encodeURIComponent(q)}`));
         const data: SuggestItem[] = await res.json();
         setSuggestions(data);
         setShowSug(data.length > 0);
@@ -247,7 +248,7 @@ export default function MealCard({ meal }: Props) {
     if (!q) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/food/lookup", {
+      const res = await fetch(apiUrl("/api/food/lookup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q }),

@@ -22,7 +22,14 @@ export default function AuthModal() {
 
   const handleKakao = async () => {
     setLoading(true);
-    await signIn("kakao", { callbackUrl: "/" });
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
+    if (apiBase) {
+      // 모바일: WebView 전체를 Vercel로 이동 → 카카오 로그인 → 앱으로 복귀
+      const callbackUrl = encodeURIComponent(`${window.location.origin}/`);
+      window.location.href = `${apiBase}/api/auth/signin/kakao?callbackUrl=${callbackUrl}`;
+    } else {
+      await signIn("kakao", { callbackUrl: "/" });
+    }
   };
 
   return (

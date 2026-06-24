@@ -1,10 +1,10 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import type { DayLog } from "@/lib/types";
 import { MEAL_TYPES, emptyDayLog } from "@/lib/types";
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 function maskPrivateItems(log: DayLog): DayLog {
   return {
@@ -13,9 +13,7 @@ function maskPrivateItems(log: DayLog): DayLog {
       MEAL_TYPES.map((meal) => [
         meal,
         log.meals[meal].map((f) =>
-          f.private
-            ? { ...f, name: "비공개 음식", amount: "" }
-            : f,
+          f.private ? { ...f, name: "비공개 음식", amount: "" } : f,
         ),
       ]),
     ) as DayLog["meals"],
@@ -23,60 +21,51 @@ function maskPrivateItems(log: DayLog): DayLog {
 }
 
 export async function GET(req: NextRequest) {
-  if (!url || !key) {
+  if (!supabase) {
     return NextResponse.json({ error: "Supabase 미설정" }, { status: 503 });
   }
 
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const sb = createClient(url, key);
-  const {
-    data: { user },
-  } = await sb.auth.getUser(token);
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // 현재 유저의 커플 조회
-  const { data: couple } = await sb
+  // 커플 조회
+  const { data: couple } = await supabase
     .from("couples")
     .select("user_a, user_b")
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .eq("status", "active")
     .maybeSingle();
 
   if (!couple) {
-    // 커플 없음 → 204 No Content
     return new NextResponse(null, { status: 204 });
   }
 
   const partnerId =
-    couple.user_a === user.id ? couple.user_b : couple.user_a;
+    couple.user_a === userId ? couple.user_b : couple.user_a;
 
   if (!partnerId) {
     return new NextResponse(null, { status: 204 });
   }
 
-  // 파트너 닉네임
-  const { data: display } = await sb
-    .from("user_display")
+  // 파트너 닉네임 (user_profiles.display_name)
+  const { data: profile } = await supabase
+    .from("user_profiles")
     .select("display_name")
     .eq("id", partnerId)
     .maybeSingle();
 
-  // 파트너 날짜 파라미터
+  // 날짜
   const dateParam = req.nextUrl.searchParams.get("date");
   const date =
     dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
       ? dateParam
       : new Date().toISOString().slice(0, 10);
 
-  // 파트너의 day_log 조회
-  const { data: logRow } = await sb
+  // 파트너 day_log
+  const { data: logRow } = await supabase
     .from("day_logs")
     .select("meals, water_ml, memo, steps, exercises")
     .eq("user_id", partnerId)
@@ -98,6 +87,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ...masked,
-    partnerName: display?.display_name ?? "파트너",
+    partnerName: profile?.display_name ?? "파트너",
   });
 }

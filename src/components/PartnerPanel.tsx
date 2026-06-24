@@ -3,8 +3,8 @@
 import { Dumbbell, EyeOff, Loader2, RefreshCw, Utensils } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-store";
-import { supabase } from "@/lib/supabase";
 import { useDiet } from "@/lib/store";
+import { apiUrl } from "@/lib/api";
 import { MEAL_LABELS, MEAL_TYPES, type DayLog } from "@/lib/types";
 
 interface MaskedDayLog extends DayLog {
@@ -19,16 +19,12 @@ export default function PartnerPanel() {
   const [coupled, setCoupled] = useState(false);
 
   const fetchPartnerLog = useCallback(async () => {
-    if (!user || !supabase) return;
-
-    const session = await supabase.auth.getSession();
-    const token = session.data.session?.access_token;
-    if (!token) return;
+    if (!user) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/partner/today?date=${date}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(apiUrl(`/api/partner/today?date=${date}`), {
+        credentials: "include",
       });
 
       if (res.status === 204) {

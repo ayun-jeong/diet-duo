@@ -27,9 +27,30 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    // Capacitor 앱에서 로그인 후 앱으로 복귀 허용
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("capacitor://") || url.startsWith("http://localhost")) {
+        return url;
+      }
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (url.startsWith(baseUrl)) return url;
+      return baseUrl;
+    },
   },
   pages: {
     signIn: "/",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  // SameSite=None: Capacitor 앱(다른 오리진)에서 세션 쿠키 전송 허용
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+        path: "/",
+      },
+    },
+  },
 };

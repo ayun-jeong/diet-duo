@@ -41,15 +41,19 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async saveProfile(profile: UserProfile): Promise<void> {
-    await this.db.from("user_profiles").upsert({
-      id: this.userId,
-      height_cm: profile.heightCm,
-      weight_kg: profile.weightKg,
-      age: profile.age,
-      sex: profile.sex,
-      activity: profile.activity,
-      goal: profile.goal,
-    });
+    const { error } = await this.db.from("user_profiles").upsert(
+      {
+        id: this.userId,
+        height_cm: profile.heightCm,
+        weight_kg: profile.weightKg,
+        age: profile.age,
+        sex: profile.sex,
+        activity: profile.activity,
+        goal: profile.goal,
+      },
+      { onConflict: "id" },
+    );
+    if (error) console.error("[SupabaseAdapter] saveProfile error:", error);
   }
 
   async getDayLog(date: string): Promise<DayLog | null> {
@@ -73,16 +77,20 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async saveDayLog(log: DayLog): Promise<void> {
-    await this.db.from("day_logs").upsert({
-      user_id: this.userId,
-      date: log.date,
-      meals: log.meals,
-      water_ml: log.waterMl,
-      memo: log.memo ?? "",
-      steps: log.steps ?? 0,
-      exercises: log.exercises ?? [],
-      updated_at: new Date().toISOString(),
-    });
+    const { error } = await this.db.from("day_logs").upsert(
+      {
+        user_id: this.userId,
+        date: log.date,
+        meals: log.meals,
+        water_ml: log.waterMl,
+        memo: log.memo ?? "",
+        steps: log.steps ?? 0,
+        exercises: log.exercises ?? [],
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,date" },
+    );
+    if (error) console.error("[SupabaseAdapter] saveDayLog error:", error);
   }
 
   async getSettings(): Promise<AppSettings | null> {
@@ -97,7 +105,11 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async saveSettings(settings: AppSettings): Promise<void> {
-    await this.db.from("user_profiles").upsert({ id: this.userId, settings });
+    const { error } = await this.db
+      .from("user_profiles")
+      .update({ settings })
+      .eq("id", this.userId);
+    if (error) console.error("[SupabaseAdapter] saveSettings error:", error);
   }
 
   async getFavorites(): Promise<FavoriteFood[]> {
@@ -110,6 +122,10 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async saveFavorites(favorites: FavoriteFood[]): Promise<void> {
-    await this.db.from("user_profiles").upsert({ id: this.userId, favorites });
+    const { error } = await this.db
+      .from("user_profiles")
+      .update({ favorites })
+      .eq("id", this.userId);
+    if (error) console.error("[SupabaseAdapter] saveFavorites error:", error);
   }
 }

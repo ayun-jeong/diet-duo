@@ -62,8 +62,12 @@ function AuthSync() {
 }
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  // 모바일 번들 빌드 시 NEXT_PUBLIC_NEXTAUTH_URL로 크로스 오리진 세션 체크
+  const nextAuthBase = process.env.NEXT_PUBLIC_NEXTAUTH_URL;
+  const basePath = nextAuthBase ? `${nextAuthBase}/api/auth` : undefined;
+
   return (
-    <SessionProvider>
+    <SessionProvider basePath={basePath}>
       <AuthSync />
       {children}
     </SessionProvider>
