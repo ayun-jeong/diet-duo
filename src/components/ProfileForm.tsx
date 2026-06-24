@@ -49,8 +49,14 @@ export default function ProfileForm({ onDone }: Props) {
       toast.error("키, 몸무게, 나이를 올바르게 입력하세요.");
       return;
     }
-    await setProfile(form);
-    toast.success("프로필이 저장되었습니다.");
+    try {
+      await setProfile(form);
+      toast.success("프로필이 저장되었습니다.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.warning(`임시 저장됨 (서버 오류: ${msg})`);
+      console.error("[ProfileForm] setProfile error:", msg);
+    }
     onDone?.();
   };
 

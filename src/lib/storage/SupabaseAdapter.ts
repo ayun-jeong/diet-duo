@@ -53,7 +53,10 @@ export class SupabaseAdapter implements StorageAdapter {
       },
       { onConflict: "id" },
     );
-    if (error) console.error("[SupabaseAdapter] saveProfile error:", error);
+    if (error) {
+      console.error("[SupabaseAdapter] saveProfile error:", error);
+      throw new Error(error.message);
+    }
   }
 
   async getDayLog(date: string): Promise<DayLog | null> {

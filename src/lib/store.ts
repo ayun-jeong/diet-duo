@@ -82,10 +82,18 @@ export const useDiet = create<DietState>((set, get) => ({
       storage.getSettings(),
       storage.getFavorites(),
     ]);
+    // Supabase 실패 시 localStorage 백업에서 복구
+    let resolvedProfile = profile;
+    if (!resolvedProfile && typeof window !== "undefined") {
+      try {
+        const backup = window.localStorage.getItem("diet:profile-backup");
+        if (backup) resolvedProfile = JSON.parse(backup) as UserProfile;
+      } catch {}
+    }
     const base = emptyDayLog(date);
     set({
       ready: true,
-      profile,
+      profile: resolvedProfile,
       settings: settings ?? DEFAULT_SETTINGS,
       favorites,
       date,
@@ -95,8 +103,12 @@ export const useDiet = create<DietState>((set, get) => ({
   },
 
   setProfile: async (p) => {
-    await storage.saveProfile(p);
-    set({ profile: p });
+    // localStorage 백업 항상 유지 (Supabase 장애 시 복구용)
+    if (typeof window !== "undefined") {
+      try { window.localStorage.setItem("diet:profile-backup", JSON.stringify(p)); } catch {}
+    }
+    set({ profile: p }); // 메모리는 항상 즉시 업데이트
+    await storage.saveProfile(p); // Supabase 실패 시 throw
   },
 
   setSettings: async (s) => {
