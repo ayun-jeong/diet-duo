@@ -12,12 +12,21 @@ export default function WaterTracker() {
   const setWater = useDiet((s) => s.setWater);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [cupInput, setCupInput] = useState(String(waterCupMl));
+  const [goalInput, setGoalInput] = useState(String(waterGoalMl));
+
+  const applySettings = () => {
+    const newCup = Math.max(1, Number(cupInput.replace(/[^0-9]/g, "")) || waterCupMl);
+    const newGoal = Math.max(newCup, Number(goalInput.replace(/[^0-9]/g, "")) || waterGoalMl);
+    setCupInput(String(newCup));
+    setGoalInput(String(newGoal));
+    setSettings({ waterCupMl: newCup, waterGoalMl: newGoal });
+  };
 
   const cup = Math.max(1, waterCupMl);
   const goal = Math.max(cup, waterGoalMl);
   const totalCups = Math.ceil(goal / cup);
   const filledCups = Math.min(totalCups, Math.floor(waterMl / cup));
-  const num = (v: string) => Number(v.replace(/[^0-9]/g, "")) || 0;
 
   const waterLabel = waterMl >= 1000 ? `${(waterMl / 1000).toFixed(1)}L` : `${waterMl}ml`;
   const goalLabel = goal >= 1000 ? `${(goal / 1000).toFixed(1)}L` : `${goal}ml`;
@@ -106,9 +115,11 @@ export default function WaterTracker() {
             <span className="mb-1 block text-xs text-gray-400">컵 용량 (ml)</span>
             <input
               type="number"
-              value={waterCupMl}
+              value={cupInput}
               min={1}
-              onChange={(e) => setSettings({ waterCupMl: num(e.target.value) })}
+              onChange={(e) => setCupInput(e.target.value)}
+              onBlur={applySettings}
+              onKeyDown={(e) => e.key === "Enter" && applySettings()}
               className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-sky-400"
             />
           </label>
@@ -116,9 +127,11 @@ export default function WaterTracker() {
             <span className="mb-1 block text-xs text-gray-400">목표 (ml)</span>
             <input
               type="number"
-              value={waterGoalMl}
+              value={goalInput}
               min={cup}
-              onChange={(e) => setSettings({ waterGoalMl: num(e.target.value) })}
+              onChange={(e) => setGoalInput(e.target.value)}
+              onBlur={applySettings}
+              onKeyDown={(e) => e.key === "Enter" && applySettings()}
               className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-sky-400"
             />
           </label>
