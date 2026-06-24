@@ -17,41 +17,50 @@ function AuthSync() {
     if (status === "loading") return;
 
     const sync = async () => {
-      if (status === "authenticated" && session?.user) {
-        const userId = (session.user as AppUser & { id: string }).id;
-        const appUser: AppUser = { id: userId, name: session.user.name, image: session.user.image };
+      try {
+        if (status === "authenticated" && session?.user) {
+          const userId = (session.user as AppUser & { id: string }).id;
+          const appUser: AppUser = { id: userId, name: session.user.name, image: session.user.image };
 
-        if (supabase) {
-          const sbAdapter = new SupabaseAdapter(supabase, userId);
-          const lsAdapter = new LocalStorageAdapter();
+          if (supabase) {
+            const sbAdapter = new SupabaseAdapter(supabase, userId);
+            const lsAdapter = new LocalStorageAdapter();
 
-          // 처음 로그인 시 localStorage → Supabase 마이그레이션
-          const sbProfile = await sbAdapter.getProfile();
-          if (!sbProfile) {
-            const [lsProfile, lsSettings, lsFavorites, lsLog] = await Promise.all([
-              lsAdapter.getProfile(),
-              lsAdapter.getSettings(),
-              lsAdapter.getFavorites(),
-              lsAdapter.getDayLog(todayStr()),
-            ]);
-            await Promise.all([
-              lsProfile ? sbAdapter.saveProfile(lsProfile) : Promise.resolve(),
-              lsSettings ? sbAdapter.saveSettings(lsSettings) : Promise.resolve(),
-              lsFavorites.length > 0 ? sbAdapter.saveFavorites(lsFavorites) : Promise.resolve(),
-              lsLog ? sbAdapter.saveDayLog(lsLog) : Promise.resolve(),
-            ]);
+            // 처음 로그인 시 localStorage → Supabase 마이그레이션 (실패해도 계속 진행)
+            try {
+              const sbProfile = await sbAdapter.getProfile();
+              if (!sbProfile) {
+                const [lsProfile, lsSettings, lsFavorites, lsLog] = await Promise.all([
+                  lsAdapter.getProfile(),
+                  lsAdapter.getSettings(),
+                  lsAdapter.getFavorites(),
+                  lsAdapter.getDayLog(todayStr()),
+                ]);
+                await Promise.allSettled([
+                  lsProfile ? sbAdapter.saveProfile(lsProfile) : Promise.resolve(),
+                  lsSettings ? sbAdapter.saveSettings(lsSettings) : Promise.resolve(),
+                  lsFavorites.length > 0 ? sbAdapter.saveFavorites(lsFavorites) : Promise.resolve(),
+                  lsLog ? sbAdapter.saveDayLog(lsLog) : Promise.resolve(),
+                ]);
+              }
+            } catch (e) {
+              console.error("[AuthSync] migration error:", e);
+            }
+            setStorage(sbAdapter);
           }
-          setStorage(sbAdapter);
-        }
 
-        setUser(appUser);
-        await useDiet.getState().init();
-      } else {
-        setStorage(new LocalStorageAdapter());
-        setUser(null);
-        await useDiet.getState().init();
+          setUser(appUser);
+          await useDiet.getState().init();
+        } else {
+          setStorage(new LocalStorageAdapter());
+          setUser(null);
+          await useDiet.getState().init();
+        }
+      } catch (e) {
+        console.error("[AuthSync] sync error:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     sync();
