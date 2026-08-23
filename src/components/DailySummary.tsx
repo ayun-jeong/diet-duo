@@ -147,12 +147,17 @@ export default function DailySummary() {
   const prevPct = useRef<number | null>(null);
   const celebratedDate = useRef<string | null>(null);
 
-  if (!profile) return null;
-
-  const target = calcMacroTargets(profile);
+  // profile 이 없어도 훅은 항상 같은 순서로 호출돼야 한다.
+  // (이전에는 아래 useEffect 가 `if (!profile) return null` 뒤에 있어
+  //  eslint 의 rules-of-hooks 경고를 주석으로 눌러 둔 상태였다. 프로필이
+  //  뒤늦게 도착하는 지금 구조에서는 훅 개수가 바뀌어 터질 수 있다.)
+  const target = profile
+    ? calcMacroTargets(profile)
+    : { kcal: 0, carbs: 0, protein: 0, fat: 0 };
   const totals = sumDayTotals(log);
 
-  const stepsBurned = (log.steps ?? 0) > 0 ? stepsToKcal(log.steps ?? 0, profile.weightKg) : 0;
+  const stepsBurned =
+    profile && (log.steps ?? 0) > 0 ? stepsToKcal(log.steps ?? 0, profile.weightKg) : 0;
   const exerciseBurned = log.exercises.reduce((sum, e) => sum + e.burned, 0);
   const totalBurned = stepsBurned + exerciseBurned;
 
@@ -169,8 +174,10 @@ export default function DailySummary() {
   const waterLabel = waterMl >= 1000 ? `${(waterMl / 1000).toFixed(1)}L` : `${waterMl}ml`;
   const waterGoalLabel = waterGoal >= 1000 ? `${(waterGoal / 1000).toFixed(1)}L` : `${waterGoal}ml`;
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const hasProfile = !!profile;
+
   useEffect(() => {
+    if (!hasProfile) return;
     if (prevPct.current === null) { prevPct.current = rawPct; return; }
     const prev = prevPct.current;
     prevPct.current = rawPct;
@@ -182,7 +189,9 @@ export default function DailySummary() {
         duration: 4000,
       });
     }
-  }, [rawPct, log.date, totals.kcal]);
+  }, [hasProfile, rawPct, log.date, totals.kcal]);
+
+  if (!profile) return null;
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">

@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Copy, Heart, Link2, Link2Off, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Copy, CloudOff, Heart, Link2, Link2Off, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import {
@@ -15,22 +15,31 @@ import {
 export default function CoupleSetup() {
   const user = useAuth((s) => s.user);
   const [couple, setCouple] = useState<CoupleInfo | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [loadingCouple, setLoadingCouple] = useState(false);
   const [codeInput, setCodeInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const refresh = async () => {
-    if (!user) return;
+  const refresh = useCallback(async () => {
+    if (!user) {
+      setCouple(null);
+      return;
+    }
     setLoadingCouple(true);
-    const c = await getCoupleStatus(user.id);
-    setCouple(c);
-    setLoadingCouple(false);
-  };
-
-  useEffect(() => {
-    refresh();
+    try {
+      const status = await getCoupleStatus();
+      setUnavailable(status.kind === "unavailable");
+      setCouple(status.kind === "linked" ? status.couple : null);
+    } finally {
+      setLoadingCouple(false);
+    }
   }, [user]);
+
+  // user 객체가 아니라 id 로 비교해야 매 렌더마다 재조회되지 않는다.
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   if (!user) {
     return (
@@ -48,26 +57,24 @@ export default function CoupleSetup() {
 
   const handleCreateInvite = async () => {
     setBusy(true);
-    const code = await createInvite(user.id);
-    if (code) {
-      await refresh();
-    } else {
-      toast.error("초대 코드 생성 실패");
-    }
+    const { couple: created, error } = await createInvite();
+    if (created) setCouple(created);
+    else toast.error(error ?? "초대 코드 생성 실패");
     setBusy(false);
   };
 
   const handleAccept = async () => {
     if (!codeInput.trim()) { toast.error("코드를 입력하세요."); return; }
     setBusy(true);
-    const result = await acceptInvite(codeInput.trim(), user.id);
-    if (result.ok) {
+    const { couple: linked, error } = await acceptInvite(codeInput.trim());
+    if (linked) {
+      setCouple(linked);
+      setCodeInput("");
       toast.success("커플 연결 완료!");
-      await refresh();
     } else {
-      toast.error(result.error ?? "연결 실패");
+      // 실패 시 입력값을 지우지 않는다 (오타면 다시 고쳐 쓸 수 있게).
+      toast.error(error ?? "연결 실패");
     }
-    setCodeInput("");
     setBusy(false);
   };
 
@@ -75,24 +82,50 @@ export default function CoupleSetup() {
     if (!couple) return;
     if (!confirm("커플 연결을 해제하시겠어요?")) return;
     setBusy(true);
-    await disconnectCouple(couple.id);
-    setCouple(null);
-    toast.info("커플 연결이 해제되었습니다.");
+    const { error } = await disconnectCouple();
+    if (error) {
+      toast.error(error);
+    } else {
+      setCouple(null);
+      toast.info("커플 연결이 해제되었습니다.");
+    }
     setBusy(false);
   };
 
   const copyCode = () => {
     if (!couple?.inviteCode) return;
-    navigator.clipboard.writeText(couple.inviteCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    // Capacitor WebView 등에서는 clipboard 접근이 거부될 수 있다.
+    navigator.clipboard
+      ?.writeText(couple.inviteCode)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => toast.error("복사에 실패했습니다. 코드를 직접 입력해 주세요."));
   };
 
   if (loadingCouple) {
     return (
       <div className="flex items-center justify-center rounded-2xl bg-white p-6 ring-1 ring-black/5">
         <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+      </div>
+    );
+  }
+
+  // ── 서버 동기화 미설정 ─────────────────────────────────────
+  // DB 없이도 앱의 나머지 기능은 그대로 쓸 수 있으므로, 실패하는 버튼을
+  // 띄우는 대신 왜 못 쓰는지만 알려준다.
+  if (unavailable) {
+    return (
+      <div className="rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
+          <CloudOff className="h-4 w-4" />
+          커플 연결 사용 불가
+        </div>
+        <p className="mt-1.5 text-xs text-gray-400">
+          서버 동기화가 설정되지 않았어요. 식단·운동 기록은 이 기기에 저장되며
+          정상적으로 사용할 수 있습니다.
+        </p>
       </div>
     );
   }

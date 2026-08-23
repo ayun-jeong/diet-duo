@@ -29,12 +29,16 @@ export default function ExerciseCard() {
   const [loading, setLoading] = useState(false);
   const [stepsInput, setStepsInput] = useState(String(log.steps ?? 0));
 
-  const prevDate = useRef(log.date);
+  /**
+   * 날짜가 바뀌거나, 같은 날짜의 걸음수가 저장소에서 갱신되면 입력칸을 맞춘다.
+   * (이전에는 날짜가 바뀔 때만 동기화해서, 로그인 후 서버 걸음수가 도착해도
+   *  입력칸은 0 을 들고 있다가 blur 시 그 0 을 다시 저장해 기록을 지웠다.)
+   * 사용자가 입력 중일 때는 건드리지 않는다.
+   */
+  const editing = useRef(false);
   useEffect(() => {
-    if (prevDate.current !== log.date) {
-      setStepsInput(String(log.steps ?? 0));
-      prevDate.current = log.date;
-    }
+    if (editing.current) return;
+    setStepsInput(String(log.steps ?? 0));
   }, [log.date, log.steps]);
 
   const totalBurned = exercises.reduce((s, e) => s + e.burned, 0);
@@ -45,6 +49,7 @@ export default function ExerciseCard() {
   const grandTotal = totalBurned + burnedKcal;
 
   const saveSteps = () => {
+    editing.current = false;
     const n = Math.max(0, parseInt(stepsInput, 10) || 0);
     setStepsInput(String(n));
     setSteps(n);
@@ -156,7 +161,7 @@ export default function ExerciseCard() {
                 type="number"
                 value={stepsInput}
                 min={0}
-                onChange={(e) => setStepsInput(e.target.value)}
+                onChange={(e) => { editing.current = true; setStepsInput(e.target.value); }}
                 onBlur={saveSteps}
                 onKeyDown={(e) => e.key === "Enter" && saveSteps()}
                 placeholder="0"

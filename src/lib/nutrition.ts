@@ -75,7 +75,8 @@ export interface DayTotals {
 /** 하루 동안 먹은 모든 음식의 영양 합계 */
 export function sumDayTotals(log: DayLog): DayTotals {
   const totals: DayTotals = { kcal: 0, carbs: 0, protein: 0, fat: 0 };
-  for (const items of Object.values(log.meals)) {
+  for (const items of Object.values(log.meals ?? {})) {
+    if (!Array.isArray(items)) continue;
     for (const f of items) {
       totals.kcal += f.kcal;
       totals.carbs += f.carbs;

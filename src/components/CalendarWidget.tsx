@@ -1,10 +1,8 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { calcGoalCalories } from "@/lib/nutrition";
-import { sumDayTotals } from "@/lib/nutrition";
-import { storage } from "@/lib/storage";
 import { useDiet, todayStr } from "@/lib/store";
 
 const DAY_HEADERS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -37,41 +35,30 @@ export default function CalendarWidget() {
   const [viewYear, setViewYear] = useState(todayObj.getFullYear());
   const [viewMonth, setViewMonth] = useState(todayObj.getMonth()); // 0-indexed
 
-  // date -> kcal 합계
-  const [monthData, setMonthData] = useState<Record<string, number>>({});
-  const loadingRef = useRef(false);
+  const summaries = useDiet((s) => s.summaries);
+  const loadSummaries = useDiet((s) => s.loadSummaries);
+  // 로그인/로그아웃으로 저장소가 바뀌면 요약 캐시가 비워지므로 다시 조회한다.
+  const storageGen = useDiet((s) => s.storageGen);
 
+  /**
+   * 보고 있는 달을 한 번의 range 조회로 가져온다.
+   *
+   * 이전에는 날짜마다 storage.getDayLog() 를 불러 한 달에 최대 31회를 개별 왕복했고,
+   * loadingRef 가드 때문에 로딩 중 달을 넘기면 그 달은 아예 조회되지 않고
+   * 이전 달 수치가 남아 있었다.
+   */
   useEffect(() => {
-    if (!profile || loadingRef.current) return;
-    loadingRef.current = true;
-
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const data: Record<string, number> = {};
-    let pending = 0;
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = toDateStr(viewYear, viewMonth, d);
-      if (dateStr > today) continue;
-      pending++;
-      storage.getDayLog(dateStr).then((log) => {
-        if (log) data[dateStr] = sumDayTotals(log).kcal;
-        pending--;
-        if (pending === 0) {
-          setMonthData({ ...data });
-          loadingRef.current = false;
-        }
-      });
-    }
-    if (pending === 0) {
-      setMonthData({});
-      loadingRef.current = false;
-    }
-  }, [viewYear, viewMonth, profile, currentDate]); // currentDate 바뀌면 오늘 데이터 갱신
+    if (!profile) return;
+    const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const from = toDateStr(viewYear, viewMonth, 1);
+    const to = toDateStr(viewYear, viewMonth, lastDay);
+    void loadSummaries(from, to > today ? today : to);
+  }, [viewYear, viewMonth, profile, loadSummaries, today, storageGen]);
 
   const target = profile ? Math.round(calcGoalCalories(profile)) : 0;
 
   const getStatus = (dateStr: string): DayStatus => {
-    const kcal = monthData[dateStr];
+    const kcal = summaries[dateStr]?.kcal;
     if (!kcal || kcal === 0) return "empty";
     const ratio = kcal / target;
     if (ratio > 1.05) return "over";
@@ -83,9 +70,14 @@ export default function CalendarWidget() {
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
   const canGoPrev = toDateStr(viewYear, viewMonth, 1) > "2020-01-01";
-  const canGoNext =
-    toDateStr(viewYear, viewMonth + 1, 1) <=
-    today.slice(0, 8) + pad(todayObj.getDate());
+
+  // 다음 달 1일이 오늘 이후면 이동할 곳이 없다.
+  // (구현이 toDateStr(y, viewMonth + 1, 1) 이라 12월에는 월이 13으로 넘어가
+  //  "2026-13-01" 같은 문자열이 만들어져 비교가 항상 실패했고, 12월에서 앞으로
+  //  나갈 수 없었다. 연/월 자리올림을 먼저 처리한다.)
+  const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
+  const nextMonth0 = viewMonth === 11 ? 0 : viewMonth + 1;
+  const canGoNext = toDateStr(nextYear, nextMonth0, 1) <= today;
 
   const prevMonth = () => {
     if (!canGoPrev) return;
@@ -98,11 +90,9 @@ export default function CalendarWidget() {
   };
 
   const nextMonth = () => {
-    const nextY = viewMonth === 11 ? viewYear + 1 : viewYear;
-    const nextM = viewMonth === 11 ? 0 : viewMonth + 1;
-    if (toDateStr(nextY, nextM, 1) > today) return;
-    setViewYear(nextY);
-    setViewMonth(nextM);
+    if (!canGoNext) return;
+    setViewYear(nextYear);
+    setViewMonth(nextMonth0);
   };
 
   return (

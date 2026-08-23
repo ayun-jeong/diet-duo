@@ -1,10 +1,30 @@
 "use client";
 
 import { BarChart2, Star, X } from "lucide-react";
-import CalendarWidget from "./CalendarWidget";
+import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import FavoritesPanel from "./FavoritesPanel";
-import WeeklyChart from "./WeeklyChart";
-import WeightChart from "./WeightChart";
+
+/**
+ * 통계 탭은 recharts 를 쓴다. 초기 번들에서 떼어내 패널을 실제로 열 때 받아온다.
+ * (첫 화면에서는 한 번도 보이지 않는데 recharts 전체가 함께 로드되고 있었다.)
+ */
+const chartFallback = (
+  <div className="h-[190px] animate-pulse rounded-2xl bg-gray-100" />
+);
+
+const WeightChart = dynamic(() => import("./WeightChart"), {
+  ssr: false,
+  loading: () => chartFallback,
+});
+const WeeklyChart = dynamic(() => import("./WeeklyChart"), {
+  ssr: false,
+  loading: () => chartFallback,
+});
+const CalendarWidget = dynamic(() => import("./CalendarWidget"), {
+  ssr: false,
+  loading: () => <div className="h-[260px] animate-pulse rounded-2xl bg-gray-100" />,
+});
 
 export type SidePanelTab = "stats" | "favorites";
 
@@ -16,6 +36,24 @@ interface Props {
 }
 
 export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
+  /**
+   * 패널은 CSS transform 으로 밀어 넣는 구조라 닫혀 있어도 계속 마운트돼 있었다.
+   * 그래서 첫 진입에 보이지도 않는 캘린더가 한 달치를, 주간 차트가 7일치를 조회했다.
+   * 한 번 연 뒤로는 마운트를 유지해 재조회 없이 다시 열리게 한다.
+   */
+  const opened = useRef(false);
+  if (open) opened.current = true;
+
+  // ESC 로 닫기
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   return (
     <>
       {/* 배경 오버레이 */}
@@ -31,6 +69,8 @@ export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
         className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 sm:w-96 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
+        aria-hidden={!open}
+        inert={!open}
       >
         {/* 패널 헤더 */}
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-3">
@@ -69,7 +109,7 @@ export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
 
         {/* 콘텐츠 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {tab === "stats" ? (
+          {!opened.current ? null : tab === "stats" ? (
             <>
               <WeightChart />
               <WeeklyChart />

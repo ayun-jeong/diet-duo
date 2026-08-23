@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
-import { MEAL_LABELS, MEAL_TYPES, type DayLog } from "@/lib/types";
+import { MEAL_LABELS, MEAL_TYPES, normalizeDayLog, type DayLog } from "@/lib/types";
 
 interface MaskedDayLog extends DayLog {
   partnerName: string;
@@ -35,10 +35,16 @@ export default function PartnerPanel() {
       }
 
       if (res.ok) {
-        setCoupled(true);
         const json = await res.json();
-        setData(json);
+        setCoupled(true);
+        // 응답에 끼니 키가 빠져 있어도 아래 map/reduce 가 터지지 않도록 정규화한다.
+        setData({
+          ...normalizeDayLog(date, json),
+          partnerName: json.partnerName ?? "파트너",
+        });
       }
+    } catch (e) {
+      console.error("[PartnerPanel] 조회 실패:", e);
     } finally {
       setLoading(false);
     }
@@ -52,7 +58,7 @@ export default function PartnerPanel() {
 
   const totalKcal = data
     ? MEAL_TYPES.reduce(
-        (sum, m) => sum + data.meals[m].reduce((s, f) => s + f.kcal, 0),
+        (sum, m) => sum + (data.meals[m] ?? []).reduce((s, f) => s + f.kcal, 0),
         0,
       )
     : 0;
@@ -103,7 +109,7 @@ export default function PartnerPanel() {
           {/* 끼니별 목록 */}
           <div className="mt-3 space-y-2">
             {MEAL_TYPES.map((meal) => {
-              const items = data.meals[meal];
+              const items = data.meals[meal] ?? [];
               if (items.length === 0) return null;
               return (
                 <div key={meal}>

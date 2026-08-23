@@ -9,7 +9,7 @@ import {
   User,
   Utensils,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import AuthModal from "@/components/AuthModal";
 import DailySummary from "@/components/DailySummary";
 import DateNav from "@/components/DateNav";
@@ -24,10 +24,8 @@ import { useDiet } from "@/lib/store";
 export default function Home() {
   const ready = useDiet((s) => s.ready);
   const profile = useDiet((s) => s.profile);
-  const init = useDiet((s) => s.init);
 
   const user = useAuth((s) => s.user);
-  const authLoading = useAuth((s) => s.loading);
   const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
 
@@ -35,11 +33,12 @@ export default function Home() {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState<SidePanelTab>("stats");
 
-  useEffect(() => {
-    init();
-  }, [init]);
+  // 초기화는 Providers 의 Hydrate/AuthSync 가 담당한다.
+  // 여기서 별도로 init 을 부르면 로그인 시 두 번 로드된다.
 
-  if (!ready || authLoading) {
+  // authLoading 은 더 이상 기다리지 않는다.
+  // 세션 확인은 배경에서 끝나고, 화면은 캐시/로컬 데이터로 먼저 그려진다.
+  if (!ready) {
     return (
       <main className="flex min-h-screen items-center justify-center text-gray-400">
         불러오는 중…

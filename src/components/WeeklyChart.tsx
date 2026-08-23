@@ -1,7 +1,7 @@
 "use client";
 
 import { TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -12,9 +12,7 @@ import {
   XAxis,
 } from "recharts";
 import { calcGoalCalories } from "@/lib/nutrition";
-import { storage } from "@/lib/storage";
-import { useDiet, todayStr } from "@/lib/store";
-import { sumDayTotals } from "@/lib/nutrition";
+import { useDiet, todayStr, shiftDate } from "@/lib/store";
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -25,13 +23,6 @@ interface DayData {
   target: number;
   hasData: boolean;
   isToday: boolean;
-}
-
-function shiftDate(base: string, delta: number): string {
-  const d = new Date(base + "T00:00:00");
-  d.setDate(d.getDate() + delta);
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
 function barColor(d: DayData): string {
@@ -66,37 +57,41 @@ function ChartTooltip({ active, payload }: any) {
 
 export default function WeeklyChart() {
   const profile = useDiet((s) => s.profile);
-  const date = useDiet((s) => s.date);
-  const [data, setData] = useState<DayData[]>([]);
+  const summaries = useDiet((s) => s.summaries);
+  const loadSummaries = useDiet((s) => s.loadSummaries);
+  // 로그인/로그아웃으로 저장소가 바뀌면 요약 캐시가 비워지므로 다시 조회한다.
+  const storageGen = useDiet((s) => s.storageGen);
 
+  const today = todayStr();
+  const from = shiftDate(today, -6);
+
+  /**
+   * 최근 7일을 한 번의 range 조회로 받는다.
+   * 이전에는 for 루프 안에서 하루씩 순차 await 해 7번을 줄줄이 기다렸다.
+   */
   useEffect(() => {
     if (!profile) return;
+    void loadSummaries(from, today);
+  }, [profile, loadSummaries, from, today, storageGen]);
+
+  const data: DayData[] = useMemo(() => {
+    if (!profile) return [];
     const target = Math.round(calcGoalCalories(profile));
-    const today = todayStr();
 
-    const load = async () => {
-      const days: DayData[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = shiftDate(today, -i);
-        const log = await storage.getDayLog(d);
-        const dt = new Date(d + "T00:00:00");
-        const mmdd = `${dt.getMonth() + 1}/${dt.getDate()}`;
-        const label = DAY_LABELS[dt.getDay()];
-        const kcal = log ? sumDayTotals(log).kcal : 0;
-        days.push({
-          label,
-          mmdd,
-          kcal,
-          target,
-          hasData: !!log && kcal > 0,
-          isToday: d === today,
-        });
-      }
-      setData(days);
-    };
-
-    load();
-  }, [profile, date]); // date 변경 시(오늘 기록 추가) 재로드
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = shiftDate(today, i - 6);
+      const dt = new Date(d + "T00:00:00");
+      const kcal = summaries[d]?.kcal ?? 0;
+      return {
+        label: DAY_LABELS[dt.getDay()],
+        mmdd: `${dt.getMonth() + 1}/${dt.getDate()}`,
+        kcal,
+        target,
+        hasData: kcal > 0,
+        isToday: d === today,
+      };
+    });
+  }, [profile, summaries, today]);
 
   if (!profile || data.length === 0) return null;
 

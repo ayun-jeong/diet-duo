@@ -61,6 +61,14 @@ export interface DayLog {
   memo?: string;       // 하루 메모 (컨디션·운동 등)
   steps?: number;      // 걸음수
   exercises: ExerciseItem[]; // 운동 기록
+  weightKg?: number;   // 그날 기록한 체중 (기기 간 동기화)
+}
+
+/** 캘린더·차트용 일별 요약 (meals 전체를 끌어오지 않기 위한 경량 형태) */
+export interface DaySummary {
+  date: string;
+  kcal: number;
+  weightKg?: number;
 }
 
 export function emptyDayLog(date: string): DayLog {
@@ -70,6 +78,45 @@ export function emptyDayLog(date: string): DayLog {
     waterMl: 0,
     exercises: [],
   };
+}
+
+/**
+ * 어떤 출처(localStorage·DB·API 응답)에서 온 값이든 안전한 DayLog 로 정규화한다.
+ *
+ * meals 의 특정 끼니 키가 빠져 있거나 배열이 아닌 경우 `.map()` / `.reduce()` 에서
+ * 터지므로, 화면에 닿기 전에 여기서 한 번 막는다.
+ */
+export function normalizeDayLog(
+  date: string,
+  raw: Partial<DayLog> | null | undefined,
+): DayLog {
+  const base = emptyDayLog(date);
+  if (!raw) return base;
+
+  const meals = {} as DayLog["meals"];
+  for (const meal of MEAL_TYPES) {
+    const items = raw.meals?.[meal];
+    meals[meal] = Array.isArray(items) ? items : [];
+  }
+
+  return {
+    date,
+    meals,
+    waterMl: Number.isFinite(raw.waterMl) ? Number(raw.waterMl) : 0,
+    memo: raw.memo ?? "",
+    steps: Number.isFinite(raw.steps) ? Number(raw.steps) : 0,
+    exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
+    weightKg: typeof raw.weightKg === "number" ? raw.weightKg : undefined,
+  };
+}
+
+/** 하루 총 섭취 칼로리 (day_logs.kcal 비정규화 컬럼 계산용) */
+export function sumMealKcal(log: DayLog): number {
+  let kcal = 0;
+  for (const meal of MEAL_TYPES) {
+    for (const f of log.meals[meal] ?? []) kcal += f.kcal ?? 0;
+  }
+  return Math.round(kcal);
 }
 
 /** 앱 전역 설정 (프로필과 별개로 유지되는 사용자 환경값) */

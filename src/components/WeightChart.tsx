@@ -1,7 +1,7 @@
 "use client";
 
 import { Scale } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Line,
   LineChart,
@@ -11,19 +11,12 @@ import {
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import { useDiet, todayStr } from "@/lib/store";
+import { useDiet, todayStr, shiftDate } from "@/lib/store";
 
 interface WeightPoint {
   date: string;
   mmdd: string;
   weight: number;
-}
-
-function shiftDate(base: string, delta: number): string {
-  const d = new Date(base + "T00:00:00");
-  d.setDate(d.getDate() + delta);
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,27 +33,40 @@ function WeightTooltip({ active, payload }: any) {
 
 export default function WeightChart() {
   const today = todayStr();
-  const weightLog = useDiet((s) => s.weightLog);
+  const summaries = useDiet((s) => s.summaries);
+  const loadSummaries = useDiet((s) => s.loadSummaries);
+  // 로그인/로그아웃으로 저장소가 바뀌면 요약 캐시가 비워지므로 다시 조회한다.
+  const storageGen = useDiet((s) => s.storageGen);
   const setDailyWeight = useDiet((s) => s.setDailyWeight);
 
   const [input, setInput] = useState("");
 
-  const todayWeight = weightLog[today];
+  const from = shiftDate(today, -29);
+
+  // 체중도 day_logs 에 저장되므로 같은 요약 캐시에서 읽는다 (별도 조회 없음).
+  useEffect(() => {
+    void loadSummaries(from, today);
+  }, [loadSummaries, from, today, storageGen]);
+
+  const todayWeight = summaries[today]?.weightKg;
 
   // 최근 30일 데이터 (기록 있는 날만)
-  const data: WeightPoint[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = shiftDate(today, -i);
-    const w = weightLog[d];
-    if (w != null) {
-      const dt = new Date(d + "T00:00:00");
-      data.push({
-        date: d,
-        mmdd: `${dt.getMonth() + 1}/${dt.getDate()}`,
-        weight: w,
-      });
+  const data: WeightPoint[] = useMemo(() => {
+    const out: WeightPoint[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = shiftDate(today, -i);
+      const w = summaries[d]?.weightKg;
+      if (w != null) {
+        const dt = new Date(d + "T00:00:00");
+        out.push({
+          date: d,
+          mmdd: `${dt.getMonth() + 1}/${dt.getDate()}`,
+          weight: w,
+        });
+      }
     }
-  }
+    return out;
+  }, [summaries, today]);
 
   const handleSave = () => {
     const n = parseFloat(input);

@@ -17,7 +17,19 @@ export default function FavoritesPanel() {
   const removeFavorite = useDiet((s) => s.removeFavorite);
   const addFood = useDiet((s) => s.addFood);
 
-  if (favorites.length === 0) return null;
+  // null 을 돌려주면 사이드패널 "즐겨찾기" 탭이 통째로 빈 화면이 된다.
+  if (favorites.length === 0) {
+    return (
+      <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5">
+        <Star className="mx-auto h-6 w-6 text-gray-200" />
+        <p className="mt-2 text-sm font-medium text-gray-500">즐겨찾기가 비어 있어요</p>
+        <p className="mt-1 text-xs text-gray-400">
+          음식 옆의 <Star className="inline h-3 w-3 text-amber-400" /> 를 누르면
+          자주 먹는 음식을 저장할 수 있어요.
+        </p>
+      </div>
+    );
+  }
 
   const handleDelete = async (id: string, name: string) => {
     await removeFavorite(id);

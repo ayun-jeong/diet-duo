@@ -264,100 +264,6 @@ function lookupLocal(food: string, grams: number, amountLabel: string): FoodResu
   };
 }
 
-// 식약처 식품영양성분DB 공공API v2 조회
-async function lookupFoodDB(
-  query: string,
-  apiKey: string,
-): Promise<FoodResult | null> {
-  try {
-    const { food: rawFood, grams, amountLabel } = parseInput(query);
-
-    // 수량 표현 제거 후 최대 3단어, 공백 유지 (베이컨 포테이토 포카치아 → 마지막 단어까지 검색)
-    const keyword = rawFood
-      .replace(/\d+(\.\d+)?\s*(g|ml|kg|l|개|인분|공기|컵|캔|조각|봉|봉지|장|쪽|팩|병|잔|그릇)/gi, "")
-      .replace(/(한|두|세|네)\s*(개|인분|공기|컵|캔|조각|봉|봉지|장|쪽|팩|병|잔|그릇)/g, "")
-      .trim()
-      .split(/\s+/)
-      .slice(0, 3)
-      .join(" ");
-
-    if (!keyword) return null;
-
-    const words = keyword.split(" ");
-
-    // DB API 검색 헬퍼
-    const searchDB = async (kw: string) => {
-      const url = new URL(
-        "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02",
-      );
-      url.searchParams.set("serviceKey", apiKey);
-      url.searchParams.set("FOOD_NM_KR", kw);
-      url.searchParams.set("pageNo", "1");
-      url.searchParams.set("numOfRows", "15");
-      url.searchParams.set("type", "json");
-      const r = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
-      if (!r.ok) return [];
-      const d = await r.json();
-      if (d?.header?.resultCode !== "00") return [];
-      return (d?.body?.items ?? []) as Record<string, string>[];
-    };
-
-    // 전체 키워드 검색, 결과 없으면 마지막 단어(음식 유형)로 재시도
-    let items = await searchDB(keyword);
-    let matchKeyword = keyword;
-    if (!items.length && words.length > 1) {
-      matchKeyword = words[words.length - 1];
-      items = await searchDB(matchKeyword);
-    }
-    if (!items.length) return null;
-
-    // 정확도 순: 1) 정확 일치, 2) 품목대표 중 키워드 포함, 3) 최단 이름
-    const sortByLen = (a: Record<string, string>, b: Record<string, string>) =>
-      (a.FOOD_NM_KR?.length ?? 99) - (b.FOOD_NM_KR?.length ?? 99);
-
-    const exactMatch = items.find((i) => i.FOOD_NM_KR?.trim() === matchKeyword);
-
-    // 키워드로 시작하는 항목만 신뢰 (앞에 브랜드명 붙은 항목 제외)
-    const startsWith = items
-      .filter((i) => i.FOOD_NM_KR?.startsWith(matchKeyword))
-      .sort(sortByLen);
-
-    // 품목대표 중 키워드 포함 (브랜드 제품명 제외됨)
-    const repContains = items
-      .filter((i) => i.DB_CLASS_NM === "품목대표" && i.FOOD_NM_KR?.includes(matchKeyword))
-      .sort(sortByLen);
-
-    if (!exactMatch && !startsWith.length && !repContains.length) return null;
-
-    const item =
-      exactMatch ??
-      startsWith.find((i) => i.DB_CLASS_NM === "품목대표") ??
-      startsWith[0] ??
-      repContains[0];
-
-    const kcalPer100 = parseFloat(item.AMT_NUM1 ?? "0") || 0;
-    const proteinPer100 = parseFloat(item.AMT_NUM3 ?? "0") || 0;
-    const fatPer100 = parseFloat(item.AMT_NUM4 ?? "0") || 0;
-    const carbsPer100 = parseFloat(item.AMT_NUM6 ?? "0") || 0;
-
-    if (kcalPer100 < 20) return null;
-    // 탄수화물·지방 둘 다 0이면 불완전 데이터 → Gemini fallback
-    if (kcalPer100 > 50 && carbsPer100 === 0 && fatPer100 === 0) return null;
-
-    const ratio = grams / 100;
-    return {
-      name: item.FOOD_NM_KR ?? keyword,
-      amount: amountLabel,
-      kcal: Math.round(kcalPer100 * ratio),
-      carbs: Math.round(carbsPer100 * ratio * 10) / 10,
-      protein: Math.round(proteinPer100 * ratio * 10) / 10,
-      fat: Math.round(fatPer100 * ratio * 10) / 10,
-      source: "db",
-    };
-  } catch {
-    return null;
-  }
-}
 
 // Gemini AI 추정 (원본 쿼리 그대로 전달 — 수량 포함, 429 시 1회 재시도)
 async function lookupGemini(
@@ -430,14 +336,11 @@ export async function POST(req: Request) {
   const localResult = lookupLocal(parsedFood, grams, amountLabel);
   if (localResult) return NextResponse.json(localResult);
 
-  // 2순위: 식약처 공공 DB
-  const foodApiKey = process.env.FOOD_API_KEY;
-  if (foodApiKey) {
-    const dbResult = await lookupFoodDB(query, foodApiKey);
-    if (dbResult) return NextResponse.json(dbResult);
-  }
-
-  // 3순위: Gemini AI 추정 — 캐시 우선, 없으면 API 호출 후 캐시 저장
+  // 2순위: Gemini AI 추정 — 캐시 우선, 없으면 API 호출 후 캐시 저장
+  //
+  // 식약처 공공 DB 조회 단계는 제거했다. 영양값은 전부 AI 가 추정한다.
+  // (LOCAL_INGREDIENTS 는 조미료·기름처럼 AI 추정이 흔들리는 기본 식재료만
+  //  담은 코드 내 상수 테이블이라 그대로 둔다.)
   const cacheKey = query.trim().toLowerCase();
   const cached = geminiCache.get(cacheKey);
   if (cached) return NextResponse.json(cached);

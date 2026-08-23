@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Droplets, Minus, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDiet } from "@/lib/store";
 
 export default function WaterTracker() {
@@ -15,7 +15,21 @@ export default function WaterTracker() {
   const [cupInput, setCupInput] = useState(String(waterCupMl));
   const [goalInput, setGoalInput] = useState(String(waterGoalMl));
 
+  /**
+   * 설정은 로그인 후 서버에서 뒤늦게 도착할 수 있다.
+   * useState 초기값만 쓰면 입력칸에 예전 값이 남고, 그 상태로 blur 되면
+   * applySettings 가 낡은 값을 서버에 다시 써서 설정이 되돌아간다.
+   * 설정 패널을 열어 편집 중일 때는 사용자의 입력을 건드리지 않는다.
+   */
+  const editing = useRef(false);
+  useEffect(() => {
+    if (editing.current) return;
+    setCupInput(String(waterCupMl));
+    setGoalInput(String(waterGoalMl));
+  }, [waterCupMl, waterGoalMl]);
+
   const applySettings = () => {
+    editing.current = false;
     const newCup = Math.max(1, Number(cupInput.replace(/[^0-9]/g, "")) || waterCupMl);
     const newGoal = Math.max(newCup, Number(goalInput.replace(/[^0-9]/g, "")) || waterGoalMl);
     setCupInput(String(newCup));
@@ -117,7 +131,7 @@ export default function WaterTracker() {
               type="number"
               value={cupInput}
               min={1}
-              onChange={(e) => setCupInput(e.target.value)}
+              onChange={(e) => { editing.current = true; setCupInput(e.target.value); }}
               onBlur={applySettings}
               onKeyDown={(e) => e.key === "Enter" && applySettings()}
               className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-sky-400"
@@ -129,7 +143,7 @@ export default function WaterTracker() {
               type="number"
               value={goalInput}
               min={cup}
-              onChange={(e) => setGoalInput(e.target.value)}
+              onChange={(e) => { editing.current = true; setGoalInput(e.target.value); }}
               onBlur={applySettings}
               onKeyDown={(e) => e.key === "Enter" && applySettings()}
               className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-sky-400"

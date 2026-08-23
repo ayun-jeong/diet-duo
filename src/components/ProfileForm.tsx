@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   ACTIVITY_LABELS,
@@ -17,7 +17,7 @@ import type {
 } from "@/lib/types";
 import CoupleSetup from "./CoupleSetup";
 import PartnerPanel from "./PartnerPanel";
-import { supabase } from "@/lib/supabase";
+import SafeSection from "./SafeSection";
 
 const ACTIVITIES = Object.keys(ACTIVITY_LABELS) as ActivityLevel[];
 const GOALS = Object.keys(GOAL_LABELS) as Goal[];
@@ -40,6 +40,22 @@ export default function ProfileForm({ onDone }: Props) {
       goal: "lose",
     },
   );
+  /** 사용자가 폼을 건드린 뒤에는 서버 값으로 되돌리지 않는다. */
+  const [dirty, setDirty] = useState(false);
+
+  /**
+   * 프로필은 로그인 직후 서버에서 뒤늦게 도착할 수 있다.
+   * useState 초기값만 쓰면 그때 이미 렌더된 폼은 기본값(170/65/25)을 들고 있고,
+   * 그대로 저장하면 서버의 실제 프로필을 기본값으로 덮어써 버린다.
+   */
+  useEffect(() => {
+    if (profile && !dirty) setForm(profile);
+  }, [profile, dirty]);
+
+  const update = (patch: Partial<UserProfile>) => {
+    setDirty(true);
+    setForm((f) => ({ ...f, ...patch }));
+  };
 
   const preview = calcMacroTargets(form);
 
@@ -51,13 +67,15 @@ export default function ProfileForm({ onDone }: Props) {
     }
     try {
       await setProfile(form);
+      setDirty(false);
       toast.success("프로필이 저장되었습니다.");
+      onDone?.();
     } catch (err) {
+      // 저장에 실패하면 폼을 닫지 않는다 — 닫으면 입력값이 사라진다.
       const msg = err instanceof Error ? err.message : String(err);
-      toast.warning(`임시 저장됨 (서버 오류: ${msg})`);
+      toast.error(`저장 실패: ${msg}`);
       console.error("[ProfileForm] setProfile error:", msg);
     }
-    onDone?.();
   };
 
   const num = (v: string) => Number(v.replace(/[^0-9.]/g, "")) || 0;
@@ -78,7 +96,7 @@ export default function ProfileForm({ onDone }: Props) {
           <input
             type="number"
             value={form.heightCm}
-            onChange={(e) => setForm({ ...form, heightCm: num(e.target.value) })}
+            onChange={(e) => update({ heightCm: num(e.target.value) })}
             className={inputCls}
           />
         </Field>
@@ -86,7 +104,7 @@ export default function ProfileForm({ onDone }: Props) {
           <input
             type="number"
             value={form.weightKg}
-            onChange={(e) => setForm({ ...form, weightKg: num(e.target.value) })}
+            onChange={(e) => update({ weightKg: num(e.target.value) })}
             className={inputCls}
           />
         </Field>
@@ -94,14 +112,14 @@ export default function ProfileForm({ onDone }: Props) {
           <input
             type="number"
             value={form.age}
-            onChange={(e) => setForm({ ...form, age: num(e.target.value) })}
+            onChange={(e) => update({ age: num(e.target.value) })}
             className={inputCls}
           />
         </Field>
         <Field label="성별">
           <select
             value={form.sex}
-            onChange={(e) => setForm({ ...form, sex: e.target.value as Sex })}
+            onChange={(e) => update({ sex: e.target.value as Sex })}
             className={inputCls}
           >
             <option value="male">남성</option>
@@ -114,9 +132,7 @@ export default function ProfileForm({ onDone }: Props) {
         <Field label="활동량">
           <select
             value={form.activity}
-            onChange={(e) =>
-              setForm({ ...form, activity: e.target.value as ActivityLevel })
-            }
+            onChange={(e) => update({ activity: e.target.value as ActivityLevel })}
             className={inputCls}
           >
             {ACTIVITIES.map((a) => (
@@ -135,7 +151,7 @@ export default function ProfileForm({ onDone }: Props) {
               <button
                 key={g}
                 type="button"
-                onClick={() => setForm({ ...form, goal: g })}
+                onClick={() => update({ goal: g })}
                 className={`rounded-lg border py-2 text-sm font-medium transition ${
                   form.goal === g
                     ? "border-emerald-500 bg-emerald-50 text-emerald-700"
@@ -168,8 +184,16 @@ export default function ProfileForm({ onDone }: Props) {
       </button>
     </form>
 
-    {supabase && <CoupleSetup />}
-    <PartnerPanel />
+    {/*
+      커플 기능은 부가 기능이다. 여기서 무슨 일이 생겨도 프로필 설정·저장은
+      항상 가능해야 하므로 에러 경계로 격리한다.
+    */}
+    <SafeSection label="커플 연결">
+      <CoupleSetup />
+    </SafeSection>
+    <SafeSection label="파트너 기록">
+      <PartnerPanel />
+    </SafeSection>
     </div>
   );
 }

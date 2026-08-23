@@ -1,101 +1,78 @@
 -- ============================================================
--- 식단 관리 앱 - Supabase SQL Schema
--- Supabase 대시보드 → SQL Editor에서 한 번 실행하세요.
+-- 식단 관리 앱 (DietDuo) - Supabase Schema
+--
+-- 인증은 NextAuth + 카카오가 담당하므로 Supabase auth.users 를 쓰지 않는다.
+-- user id = 카카오 계정 고유번호(NextAuth token.sub) 문자열.
+--
+-- 모든 DB 접근은 Next.js API 라우트에서 service_role 키로만 이루어진다.
+-- 따라서 RLS 는 켜두되 정책을 만들지 않는다:
+--   - anon / publishable 키  → 어떤 행도 읽거나 쓸 수 없음 (정책 없음 = 전부 거부)
+--   - service_role 키        → RLS 를 우회하므로 서버에서는 정상 동작
+-- 권한 검사는 각 API 라우트가 NextAuth 세션으로 수행한다.
+--
+-- Supabase 대시보드 → SQL Editor 에서 한 번 실행하세요.
 -- ============================================================
 
--- ── 1. user_display (공개 정보) ──────────────────────────────
-create table if not exists user_display (
-  id uuid references auth.users on delete cascade primary key,
-  display_name text not null default '',
-  created_at timestamptz default now()
+-- ── 1. app_users ────────────────────────────────────────────
+-- 프로필·설정·즐겨찾기를 한 행에 모아 초기 로딩을 1회 조회로 끝낸다.
+create table if not exists app_users (
+  id            text primary key,               -- 카카오 sub
+  display_name  text        not null default '',
+  height_cm     double precision,
+  weight_kg     double precision,
+  age           integer,
+  sex           text,
+  activity      text,
+  goal          text,
+  settings      jsonb       not null default '{}'::jsonb,
+  favorites     jsonb       not null default '[]'::jsonb,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
 );
-alter table user_display enable row level security;
--- 누구나 읽기 가능 (닉네임은 비공개 정보 아님)
-create policy "Public read" on user_display for select using (true);
-create policy "Own insert" on user_display for insert with check (auth.uid() = id);
-create policy "Own update" on user_display for update using (auth.uid() = id);
 
--- ── 2. user_profiles (민감 정보 - 본인만 접근) ───────────────
-create table if not exists user_profiles (
-  id uuid references auth.users on delete cascade primary key,
-  height_cm float,
-  weight_kg float,
-  age int,
-  sex text,
-  activity text,
-  goal text,
-  settings jsonb not null default '{}'::jsonb,
-  favorites jsonb not null default '[]'::jsonb,
-  created_at timestamptz default now()
-);
-alter table user_profiles enable row level security;
-create policy "Own access only" on user_profiles for all using (auth.uid() = id);
+alter table app_users enable row level security;
 
--- ── 3. couples (커플 연결 관계) ──────────────────────────────
+-- ── 2. couples ──────────────────────────────────────────────
 create table if not exists couples (
-  id uuid primary key default gen_random_uuid(),
-  user_a uuid references auth.users on delete cascade not null,
-  user_b uuid references auth.users on delete cascade,
-  invite_code text unique not null,
-  status text not null default 'pending' check (status in ('pending', 'active')),
-  created_at timestamptz default now()
+  id           uuid primary key default gen_random_uuid(),
+  user_a       text        not null references app_users(id) on delete cascade,
+  user_b       text        references app_users(id) on delete cascade,
+  invite_code  text        not null unique,
+  status       text        not null default 'pending'
+                           check (status in ('pending', 'active')),
+  created_at   timestamptz not null default now()
 );
+
 alter table couples enable row level security;
 
--- 본인 커플 + 대기중인 초대 코드 읽기 허용
-create policy "See own couples and pending invites"
-  on couples for select
-  using (
-    auth.uid() = user_a
-    or auth.uid() = user_b
-    or (status = 'pending' and user_b is null)
-  );
+create index if not exists couples_user_a_idx on couples (user_a);
+create index if not exists couples_user_b_idx on couples (user_b);
+-- 초대 코드 조회는 아직 수락되지 않은 건만 대상으로 한다.
+create index if not exists couples_pending_code_idx
+  on couples (invite_code) where status = 'pending';
 
--- 초대 생성 (user_a = 본인)
-create policy "Create invite"
-  on couples for insert
-  with check (auth.uid() = user_a and user_b is null);
+-- 한 사람이 여러 커플에 동시에 속하지 못하도록 활성 연결을 1개로 제한
+create unique index if not exists couples_active_user_a_idx
+  on couples (user_a) where status = 'active';
+create unique index if not exists couples_active_user_b_idx
+  on couples (user_b) where status = 'active';
 
--- 초대 수락 (대기중인 남의 초대 코드를 본인 ID로 업데이트)
-create policy "Accept invite"
-  on couples for update
-  using (status = 'pending' and user_b is null and user_a != auth.uid())
-  with check (user_b = auth.uid() and status = 'active');
-
--- 커플 해제 (본인이 user_a 또는 user_b인 경우)
-create policy "Disconnect couple"
-  on couples for delete
-  using (auth.uid() = user_a or auth.uid() = user_b);
-
--- ── 4. day_logs (일별 식단·운동 기록) ───────────────────────
+-- ── 3. day_logs ─────────────────────────────────────────────
 create table if not exists day_logs (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users on delete cascade not null,
-  date date not null,
-  meals jsonb not null default '{}'::jsonb,
-  water_ml integer not null default 0,
-  memo text,
-  steps integer not null default 0,
-  exercises jsonb not null default '[]'::jsonb,
-  updated_at timestamptz default now(),
-  unique(user_id, date)
+  user_id     text        not null references app_users(id) on delete cascade,
+  date        date        not null,
+  meals       jsonb       not null default '{}'::jsonb,
+  water_ml    integer     not null default 0,
+  memo        text,
+  steps       integer     not null default 0,
+  exercises   jsonb       not null default '[]'::jsonb,
+  weight_kg   double precision,          -- 그날 기록한 체중 (기기 간 동기화)
+  kcal        integer     not null default 0,  -- 섭취 칼로리 합계 (캘린더·차트 range 조회용)
+  updated_at  timestamptz not null default now(),
+  primary key (user_id, date)
 );
+
 alter table day_logs enable row level security;
 
--- 본인 기록 CRUD
-create policy "Own logs"
-  on day_logs for all using (auth.uid() = user_id);
-
--- 연결된 커플 파트너의 기록 읽기 허용
-create policy "Partner can read logs"
-  on day_logs for select using (
-    auth.uid() = user_id
-    or user_id in (
-      select
-        case when user_a = auth.uid() then user_b else user_a end
-      from couples
-      where status = 'active'
-        and (user_a = auth.uid() or user_b = auth.uid())
-        and user_b is not null
-    )
-  );
+-- 캘린더(한 달)·주간 차트(7일)·체중 추이(30일) 모두 이 인덱스를 탄다.
+create index if not exists day_logs_user_date_idx on day_logs (user_id, date desc);

@@ -20,8 +20,7 @@ import {
   Wand2,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { SuggestItem } from "@/app/api/food/suggest/route";
+import { useState } from "react";
 import type { RecommendItem } from "@/app/api/food/recommend/route";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
@@ -148,41 +147,6 @@ export default function MealCard({ meal }: Props) {
     toast.success(`${item.name} 추가 · ${item.kcal}kcal`);
     setShowRec(false);
   };
-
-  const [suggestions, setSuggestions] = useState<SuggestItem[]>([]);
-  const [showSug, setShowSug] = useState(false);
-  const [sugLoading, setSugLoading] = useState(false);
-  const sugTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  // 300ms 디바운스 자동완성
-  useEffect(() => {
-    if (sugTimer.current) clearTimeout(sugTimer.current);
-    const q = query.trim();
-    if (q.length < 1) { setSuggestions([]); setShowSug(false); return; }
-    sugTimer.current = setTimeout(async () => {
-      setSugLoading(true);
-      try {
-        const res = await fetch(apiUrl(`/api/food/suggest?q=${encodeURIComponent(q)}`));
-        const data: SuggestItem[] = await res.json();
-        setSuggestions(data);
-        setShowSug(data.length > 0);
-      } catch { setSuggestions([]); }
-      finally { setSugLoading(false); }
-    }, 300);
-    return () => { if (sugTimer.current) clearTimeout(sugTimer.current); };
-  }, [query]);
-
-  // 외부 클릭 시 닫기
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setShowSug(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const subtotal = items.reduce((s, f) => s + f.kcal, 0);
 
@@ -546,57 +510,19 @@ export default function MealCard({ meal }: Props) {
         )}
       </ul>
 
-      {/* 입력 바 + 자동완성 */}
-      <div ref={wrapRef} className="relative mt-3">
-        {/* 자동완성 드롭다운 (입력창 위에 표시) */}
-        {showSug && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-            {suggestions.map((s, i) => (
-              <button
-                key={i}
-                onMouseDown={(e) => {
-                  // mousedown으로 처리해야 input blur보다 먼저 실행됨
-                  e.preventDefault();
-                  addFood(meal, {
-                    name: s.name,
-                    amount: "100g",
-                    kcal: s.kcal,
-                    carbs: s.carbs,
-                    protein: s.protein,
-                    fat: s.fat,
-                    source: "db",
-                  });
-                  toast.success(`${s.name} 추가 · ${s.kcal}kcal`);
-                  setQuery("");
-                  setShowSug(false);
-                }}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-emerald-50 transition-colors"
-              >
-                <span className="truncate font-medium text-gray-800">{s.name}</span>
-                <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
-                  {s.kcal} kcal
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
+      {/* 입력 바 — 영양값은 전부 AI 가 추정한다 */}
+      <div className="relative mt-3">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !showSug && !loading) lookup();
-                if (e.key === "Escape") setShowSug(false);
+                if (e.key === "Enter" && !loading) lookup();
               }}
-              onFocus={() => { if (suggestions.length > 0) setShowSug(true); }}
-              placeholder="음식 검색"
+              placeholder="예: 김치찌개 1그릇, 닭가슴살 100g"
               className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
             />
-            {sugLoading && (
-              <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-300" />
-            )}
           </div>
           <button
             onClick={lookup}
