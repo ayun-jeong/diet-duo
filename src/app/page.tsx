@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import AuthModal from "@/components/AuthModal";
+import DailyNote from "@/components/DailyNote";
 import DailySummary from "@/components/DailySummary";
 import DateNav from "@/components/DateNav";
 import ExerciseCard from "@/components/ExerciseCard";
@@ -152,6 +153,9 @@ export default function Home() {
 
           {/* 운동 기록 */}
           <ExerciseCard />
+
+          {/* 하루 메모 */}
+          <DailyNote />
 
         </div>
 
