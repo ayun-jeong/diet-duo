@@ -5,10 +5,11 @@ import { toast } from "sonner";
 import {
   ACTIVITY_LABELS,
   GOAL_LABELS,
-  calcGoalCalories,
   calcMacroTargets,
+  macrosToKcal,
 } from "@/lib/nutrition";
 import { useDiet } from "@/lib/store";
+import type { MacroGoal } from "@/lib/types";
 import type {
   ActivityLevel,
   Goal,
@@ -29,6 +30,8 @@ interface Props {
 export default function ProfileForm({ onDone }: Props) {
   const profile = useDiet((s) => s.profile);
   const setProfile = useDiet((s) => s.setProfile);
+  const settings = useDiet((s) => s.settings);
+  const setSettings = useDiet((s) => s.setSettings);
 
   const [form, setForm] = useState<UserProfile>(
     profile ?? {
@@ -57,7 +60,37 @@ export default function ProfileForm({ onDone }: Props) {
     setForm((f) => ({ ...f, ...patch }));
   };
 
-  const preview = calcMacroTargets(form);
+  const auto = calcMacroTargets(form);
+
+  /**
+   * 영양소 목표 직접 지정.
+   *
+   * 켜면 g 수를 직접 넣고, 목표 칼로리는 그 g 수에서 역산한다.
+   * (칼로리를 따로 두면 화면에 표시되는 두 값이 어긋난다.)
+   */
+  const goal: MacroGoal = settings.macroGoal ?? {
+    enabled: false,
+    carbs: auto.carbs,
+    protein: auto.protein,
+    fat: auto.fat,
+  };
+
+  const custom = goal.enabled;
+  const shown = custom ? goal : auto;
+  const shownKcal = custom
+    ? macrosToKcal(goal.carbs, goal.protein, goal.fat)
+    : auto.kcal;
+
+  const updateGoal = (patch: Partial<MacroGoal>) =>
+    setSettings({ macroGoal: { ...goal, ...patch } });
+
+  /** 켤 때는 현재 자동값을 시작점으로 채워 넣는다. */
+  const toggleCustom = () =>
+    setSettings({
+      macroGoal: custom
+        ? { ...goal, enabled: false }
+        : { enabled: true, carbs: auto.carbs, protein: auto.protein, fat: auto.fat },
+    });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,14 +199,65 @@ export default function ProfileForm({ onDone }: Props) {
       </div>
 
       <div className="mt-5 rounded-xl bg-emerald-50 p-4">
-        <div className="text-sm text-emerald-700">예상 목표 칼로리</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-emerald-700">
+            {custom ? "내가 정한 목표" : "예상 목표 칼로리"}
+          </div>
+          <button
+            type="button"
+            onClick={toggleCustom}
+            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+              custom
+                ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                : "bg-white text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+            }`}
+          >
+            {custom ? "자동으로 되돌리기" : "직접 정하기"}
+          </button>
+        </div>
+
         <div className="mt-0.5 text-2xl font-extrabold text-emerald-700">
-          {Math.round(calcGoalCalories(form)).toLocaleString()} kcal
+          {shownKcal.toLocaleString()} kcal
           <span className="ml-1 text-sm font-normal">/ 일</span>
         </div>
-        <div className="mt-1 text-xs text-emerald-600">
-          탄수화물 {preview.carbs}g · 단백질 {preview.protein}g · 지방 {preview.fat}g
-        </div>
+
+        {custom ? (
+          <>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["carbs", "탄수화물"],
+                  ["protein", "단백질"],
+                  ["fat", "지방"],
+                ] as [keyof Omit<MacroGoal, "enabled">, string][]
+              ).map(([key, label]) => (
+                <label key={key} className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-emerald-700">
+                    {label} (g)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={goal[key]}
+                    onChange={(e) =>
+                      updateGoal({ [key]: Math.max(0, num(e.target.value)) } as Partial<MacroGoal>)
+                    }
+                    className="w-full rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-emerald-600">
+              칼로리는 입력한 g 수에서 자동 계산됩니다 (탄·단 4kcal/g, 지방 9kcal/g).
+              <br />
+              자동 추천값: 탄 {auto.carbs}g · 단 {auto.protein}g · 지 {auto.fat}g
+            </p>
+          </>
+        ) : (
+          <div className="mt-1 text-xs text-emerald-600">
+            탄수화물 {shown.carbs}g · 단백질 {shown.protein}g · 지방 {shown.fat}g
+          </div>
+        )}
       </div>
 
       <button

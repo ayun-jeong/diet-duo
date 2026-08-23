@@ -117,10 +117,25 @@ export function sumMealKcal(log: DayLog): number {
   return Math.round(kcal);
 }
 
+/**
+ * 직접 지정한 영양소 목표 (g).
+ *
+ * enabled 가 false 면 프로필 기반 자동 계산값(탄 50% / 단 25% / 지 25%)을 쓴다.
+ * 목표 칼로리는 이 g 수에서 역산한다 (탄·단 4kcal/g, 지방 9kcal/g).
+ * 그래야 화면에 표시되는 칼로리와 영양소 목표가 서로 어긋나지 않는다.
+ */
+export interface MacroGoal {
+  enabled: boolean;
+  carbs: number;
+  protein: number;
+  fat: number;
+}
+
 /** 앱 전역 설정 (프로필과 별개로 유지되는 사용자 환경값) */
 export interface AppSettings {
   waterCupMl: number; // 물 한 컵 용량
   waterGoalMl: number; // 하루 물 섭취 목표
+  macroGoal?: MacroGoal; // 직접 지정한 영양소 목표 (없으면 자동 계산)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

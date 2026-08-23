@@ -1,5 +1,6 @@
 import type {
   ActivityLevel,
+  AppSettings,
   DayLog,
   Goal,
   UserProfile,
@@ -63,6 +64,39 @@ export function calcMacroTargets(p: UserProfile): MacroTargets {
     protein: Math.round((kcal * 0.25) / 4),
     fat: Math.round((kcal * 0.25) / 9),
   };
+}
+
+/** 영양소 g → 칼로리 (탄·단 4, 지방 9) */
+export function macrosToKcal(carbs: number, protein: number, fat: number): number {
+  return Math.round(carbs * 4 + protein * 4 + fat * 9);
+}
+
+/**
+ * 실제로 적용할 하루 목표.
+ *
+ * 사용자가 영양소 g 을 직접 지정했으면 그 값을 쓰고, 목표 칼로리도 거기서
+ * 역산한다. 지정하지 않았으면 프로필 기반 자동 계산값을 그대로 쓴다.
+ *
+ * 화면 여러 곳(요약·끼니 카드·주간 차트·캘린더)이 목표를 참조하므로
+ * 계산은 반드시 이 함수 하나를 거치게 한다.
+ */
+export function resolveTargets(
+  profile: UserProfile,
+  settings?: AppSettings,
+): MacroTargets {
+  const auto = calcMacroTargets(profile);
+  const g = settings?.macroGoal;
+
+  if (!g?.enabled) return auto;
+
+  const carbs = Math.max(0, Math.round(g.carbs));
+  const protein = Math.max(0, Math.round(g.protein));
+  const fat = Math.max(0, Math.round(g.fat));
+
+  // 셋 다 0 이면 의미가 없으므로 자동값으로 되돌린다.
+  if (carbs + protein + fat === 0) return auto;
+
+  return { kcal: macrosToKcal(carbs, protein, fat), carbs, protein, fat };
 }
 
 export interface DayTotals {

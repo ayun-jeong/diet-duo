@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
-import { calcMacroTargets, sumDayTotals } from "@/lib/nutrition";
+import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
 import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
 import type { FavoriteFood } from "@/lib/types";
 
@@ -92,11 +92,12 @@ export default function MealCard({ meal }: Props) {
   const [recLoading, setRecLoading] = useState(false);
 
   const profile = useDiet((s) => s.profile);
+  const settings = useDiet((s) => s.settings);
   const log = useDiet((s) => s.log);
 
   const remainingKcal = (() => {
     if (!profile) return 600;
-    const target = calcMacroTargets(profile);
+    const target = resolveTargets(profile, settings);
     const totals = sumDayTotals(log);
     const stepsBurned = (log.steps ?? 0) > 0
       ? Math.round((log.steps ?? 0) * profile.weightKg * 0.0005)

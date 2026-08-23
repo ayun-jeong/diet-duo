@@ -3,7 +3,7 @@
 import { CheckCircle2, Dumbbell, Flame } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { calcMacroTargets, sumDayTotals } from "@/lib/nutrition";
+import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
 import { useDiet } from "@/lib/store";
 
 function stepsToKcal(steps: number, weightKg: number): number {
@@ -142,7 +142,8 @@ export default function DailySummary() {
   const profile = useDiet((s) => s.profile);
   const log = useDiet((s) => s.log);
   const waterMl = useDiet((s) => s.log.waterMl);
-  const { waterCupMl, waterGoalMl } = useDiet((s) => s.settings);
+  const settings = useDiet((s) => s.settings);
+  const { waterCupMl, waterGoalMl } = settings;
 
   const prevPct = useRef<number | null>(null);
   const celebratedDate = useRef<string | null>(null);
@@ -152,7 +153,7 @@ export default function DailySummary() {
   //  eslint 의 rules-of-hooks 경고를 주석으로 눌러 둔 상태였다. 프로필이
   //  뒤늦게 도착하는 지금 구조에서는 훅 개수가 바뀌어 터질 수 있다.)
   const target = profile
-    ? calcMacroTargets(profile)
+    ? resolveTargets(profile, settings)
     : { kcal: 0, carbs: 0, protein: 0, fat: 0 };
   const totals = sumDayTotals(log);
 

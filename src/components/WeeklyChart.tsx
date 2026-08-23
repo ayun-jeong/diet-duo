@@ -11,7 +11,7 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
-import { calcGoalCalories } from "@/lib/nutrition";
+import { resolveTargets } from "@/lib/nutrition";
 import { useDiet, todayStr, shiftDate } from "@/lib/store";
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -57,6 +57,7 @@ function ChartTooltip({ active, payload }: any) {
 
 export default function WeeklyChart() {
   const profile = useDiet((s) => s.profile);
+  const settings = useDiet((s) => s.settings);
   const summaries = useDiet((s) => s.summaries);
   const loadSummaries = useDiet((s) => s.loadSummaries);
   // 로그인/로그아웃으로 저장소가 바뀌면 요약 캐시가 비워지므로 다시 조회한다.
@@ -76,7 +77,7 @@ export default function WeeklyChart() {
 
   const data: DayData[] = useMemo(() => {
     if (!profile) return [];
-    const target = Math.round(calcGoalCalories(profile));
+    const target = resolveTargets(profile, settings).kcal;
 
     return Array.from({ length: 7 }, (_, i) => {
       const d = shiftDate(today, i - 6);
@@ -91,7 +92,7 @@ export default function WeeklyChart() {
         isToday: d === today,
       };
     });
-  }, [profile, summaries, today]);
+  }, [profile, settings, summaries, today]);
 
   if (!profile || data.length === 0) return null;
 

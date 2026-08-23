@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import { calcGoalCalories } from "@/lib/nutrition";
+import { resolveTargets } from "@/lib/nutrition";
 import { useDiet, todayStr } from "@/lib/store";
 
 const DAY_HEADERS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -26,6 +26,7 @@ function toDateStr(y: number, m: number, d: number) {
 
 export default function CalendarWidget() {
   const profile = useDiet((s) => s.profile);
+  const settings = useDiet((s) => s.settings);
   const currentDate = useDiet((s) => s.date); // 현재 보고 있는 날짜
   const setDate = useDiet((s) => s.setDate);
 
@@ -55,7 +56,7 @@ export default function CalendarWidget() {
     void loadSummaries(from, to > today ? today : to);
   }, [viewYear, viewMonth, profile, loadSummaries, today, storageGen]);
 
-  const target = profile ? Math.round(calcGoalCalories(profile)) : 0;
+  const target = profile ? resolveTargets(profile, settings).kcal : 0;
 
   const getStatus = (dateStr: string): DayStatus => {
     const kcal = summaries[dateStr]?.kcal;
