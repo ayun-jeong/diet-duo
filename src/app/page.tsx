@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import AuthModal from "@/components/AuthModal";
-import DailyNote from "@/components/DailyNote";
 import DailySummary from "@/components/DailySummary";
 import DateNav from "@/components/DateNav";
 import ExerciseCard from "@/components/ExerciseCard";
 import MealCard from "@/components/MealCard";
 import ProfileForm from "@/components/ProfileForm";
 import SidePanel, { type SidePanelTab } from "@/components/SidePanel";
+import StickyMemo from "@/components/StickyMemo";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet } from "@/lib/store";
@@ -58,6 +58,8 @@ export default function Home() {
   return (
     <>
       <AuthModal />
+      {/* 레이아웃과 무관하게 떠 있는 포스트잇 — 원하는 위치로 끌어다 놓을 수 있다 */}
+      <StickyMemo />
       <SidePanel
         open={sidePanelOpen}
         tab={sidePanelTab}
@@ -153,9 +155,6 @@ export default function Home() {
 
           {/* 운동 기록 */}
           <ExerciseCard />
-
-          {/* 하루 메모 */}
-          <DailyNote />
 
         </div>
 
