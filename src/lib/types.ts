@@ -58,7 +58,6 @@ export interface DayLog {
   date: string; // "YYYY-MM-DD"
   meals: Record<MealType, FoodItem[]>;
   waterMl: number;
-  memo?: string;       // 하루 메모 (컨디션·운동 등)
   steps?: number;      // 걸음수
   exercises: ExerciseItem[]; // 운동 기록
   weightKg?: number;   // 그날 기록한 체중 (기기 간 동기화)
@@ -103,7 +102,6 @@ export function normalizeDayLog(
     date,
     meals,
     waterMl: Number.isFinite(raw.waterMl) ? Number(raw.waterMl) : 0,
-    memo: raw.memo ?? "",
     steps: Number.isFinite(raw.steps) ? Number(raw.steps) : 0,
     exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
     weightKg: typeof raw.weightKg === "number" ? raw.weightKg : undefined,

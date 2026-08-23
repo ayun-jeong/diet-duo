@@ -11,6 +11,8 @@ export interface BootstrapData {
   profile: UserProfile | null;
   settings: AppSettings | null;
   favorites: FavoriteFood[];
+  /** 날짜와 무관하게 유지되는 메모 (포스트잇) */
+  memo: string;
   dayLog: DayLog | null;
 }
 
@@ -28,6 +30,7 @@ export interface StorageAdapter {
   saveProfile(profile: UserProfile): Promise<void>;
   saveSettings(settings: AppSettings): Promise<void>;
   saveFavorites(favorites: FavoriteFood[]): Promise<void>;
+  saveMemo(memo: string): Promise<void>;
 
   getDayLog(date: string): Promise<DayLog | null>;
   saveDayLog(log: DayLog): Promise<void>;

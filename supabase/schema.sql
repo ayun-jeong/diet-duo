@@ -26,6 +26,8 @@ create table if not exists app_users (
   goal          text,
   settings      jsonb       not null default '{}'::jsonb,
   favorites     jsonb       not null default '[]'::jsonb,
+  -- 포스트잇처럼 계속 붙어 있는 메모. 날짜와 무관하며 사용자가 지울 때까지 남는다.
+  memo          text        not null default '',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -63,7 +65,6 @@ create table if not exists day_logs (
   date        date        not null,
   meals       jsonb       not null default '{}'::jsonb,
   water_ml    integer     not null default 0,
-  memo        text,
   steps       integer     not null default 0,
   exercises   jsonb       not null default '[]'::jsonb,
   weight_kg   double precision,          -- 그날 기록한 체중 (기기 간 동기화)

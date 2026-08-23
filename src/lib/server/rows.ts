@@ -43,7 +43,6 @@ export function rowToDayLog(date: string, row: Row | null): DayLog | null {
   return normalizeDayLog(date, {
     meals: row.meals,
     waterMl: row.water_ml,
-    memo: row.memo,
     steps: row.steps,
     exercises: row.exercises,
     weightKg: row.weight_kg ?? undefined,
@@ -62,7 +61,6 @@ export function dayLogToRow(userId: string, log: DayLog): Row {
     date: safe.date,
     meals: safe.meals,
     water_ml: safe.waterMl,
-    memo: safe.memo ?? "",
     steps: safe.steps ?? 0,
     exercises: safe.exercises,
     weight_kg: safe.weightKg ?? null,

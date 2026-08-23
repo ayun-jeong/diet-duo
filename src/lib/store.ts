@@ -48,6 +48,8 @@ interface DietState {
   profile: UserProfile | null;
   settings: AppSettings;
   favorites: FavoriteFood[];
+  /** 날짜와 무관하게 유지되는 메모 (포스트잇) */
+  memo: string;
   date: string;
   log: DayLog;
 
@@ -143,6 +145,7 @@ export const useDiet = create<DietState>((set, get) => {
     profile: null,
     settings: DEFAULT_SETTINGS,
     favorites: [],
+    memo: "",
     date: todayStr(),
     log: emptyDayLog(todayStr()),
     summaries: {},
@@ -176,6 +179,7 @@ export const useDiet = create<DietState>((set, get) => {
         profile: cached.profile,
         settings: cached.settings ?? DEFAULT_SETTINGS,
         favorites: cached.favorites ?? [],
+        memo: cached.memo ?? "",
         date,
         // 캐시된 기록이 오늘 것일 때만 쓴다 (어제 기록을 오늘로 보여주지 않도록).
         log: cached.dayLog?.date === date
@@ -206,6 +210,7 @@ export const useDiet = create<DietState>((set, get) => {
             profile: cached.profile,
             settings: cached.settings ?? DEFAULT_SETTINGS,
             favorites: cached.favorites ?? [],
+            memo: cached.memo ?? "",
             date: targetDate,
             // 캐시된 기록이 대상 날짜의 것일 때만 쓴다.
             // (어제 캐시를 오늘 기록으로 보여주면 없는 음식이 표시된다.)
@@ -228,6 +233,7 @@ export const useDiet = create<DietState>((set, get) => {
           profile: data.profile,
           settings: data.settings ?? DEFAULT_SETTINGS,
           favorites: data.favorites ?? [],
+          memo: data.memo ?? "",
           date: targetDate,
           log: normalizeDayLog(targetDate, data.dayLog),
           // 저장소가 바뀌었으므로 이전 요약 캐시는 버리고,
@@ -272,6 +278,7 @@ export const useDiet = create<DietState>((set, get) => {
         profile: null,
         settings: DEFAULT_SETTINGS,
         favorites: [],
+        memo: "",
         summaries: {},
         loadedRanges: [],
         storageGen: get().storageGen + 1,
@@ -310,8 +317,8 @@ export const useDiet = create<DietState>((set, get) => {
       set({ profile: p });
       try {
         await storage.saveProfile(p);
-        const { userId, settings, favorites, log } = get();
-        if (userId) writeMirror(userId, { profile: p, settings, favorites, dayLog: log });
+        const { userId, settings, favorites, memo, log } = get();
+        if (userId) writeMirror(userId, { profile: p, settings, favorites, memo, dayLog: log });
       } catch (e) {
         set({ profile: prev });
         throw e;
@@ -389,8 +396,19 @@ export const useDiet = create<DietState>((set, get) => {
       commitFavorites(get().favorites.filter((f) => f.id !== id));
     },
 
+    /**
+     * 메모 저장. 하루 기록이 아니라 사용자 단위로 남기므로
+     * 날짜를 옮겨도 그대로 붙어 있고, 직접 지울 때까지 유지된다.
+     */
     setMemo: (memo) => {
-      commitLog({ ...get().log, memo });
+      const prev = get().memo;
+      set({ memo });
+
+      void storage.saveMemo(memo).catch((e) => {
+        if (get().memo !== memo) return;
+        set({ memo: prev });
+        toast.error(`메모 저장 실패: ${errText(e)}`);
+      });
     },
 
     setSteps: (steps) => {

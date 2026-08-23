@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     db.from("app_users").select("display_name").eq("id", partnerId).maybeSingle(),
     db
       .from("day_logs")
-      .select("meals, water_ml, memo, steps, exercises, weight_kg")
+      .select("meals, water_ml, steps, exercises, weight_kg")
       .eq("user_id", partnerId)
       .eq("date", date)
       .maybeSingle(),

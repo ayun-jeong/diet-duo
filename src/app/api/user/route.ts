@@ -10,7 +10,11 @@ interface Body {
   profile?: UserProfile;
   settings?: AppSettings;
   favorites?: FavoriteFood[];
+  memo?: string;
 }
+
+/** 메모 최대 길이 — 무제한 텍스트가 그대로 들어오지 않도록 자른다. */
+const MEMO_MAX = 2000;
 
 /**
  * PUT /api/user
@@ -42,6 +46,7 @@ export async function PUT(req: NextRequest) {
   if (body.profile) Object.assign(payload, profileToRow(body.profile));
   if (body.settings) payload.settings = body.settings;
   if (Array.isArray(body.favorites)) payload.favorites = body.favorites;
+  if (typeof body.memo === "string") payload.memo = body.memo.slice(0, MEMO_MAX);
 
   const { error } = await db.from("app_users").upsert(payload, { onConflict: "id" });
   if (error) {

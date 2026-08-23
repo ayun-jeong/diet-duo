@@ -59,6 +59,7 @@ export class ApiAdapter implements StorageAdapter {
       profile: UserProfile | null;
       settings: AppSettings | null;
       favorites: FavoriteFood[];
+      memo: string;
       dayLog: DayLog | null;
     }>(`/api/bootstrap?date=${date}`);
 
@@ -66,6 +67,7 @@ export class ApiAdapter implements StorageAdapter {
       profile: data.profile,
       settings: data.settings,
       favorites: data.favorites ?? [],
+      memo: data.memo ?? "",
       dayLog: data.dayLog ? normalizeDayLog(date, data.dayLog) : null,
     };
   }
@@ -88,6 +90,13 @@ export class ApiAdapter implements StorageAdapter {
     await this.request("/api/user", {
       method: "PUT",
       body: JSON.stringify({ favorites }),
+    });
+  }
+
+  async saveMemo(memo: string): Promise<void> {
+    await this.request("/api/user", {
+      method: "PUT",
+      body: JSON.stringify({ memo }),
     });
   }
 

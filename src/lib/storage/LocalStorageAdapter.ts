@@ -12,6 +12,7 @@ import type { BootstrapData, StorageAdapter } from "./StorageAdapter";
 const PROFILE_KEY = "diet:profile";
 const SETTINGS_KEY = "diet:settings";
 const FAVORITES_KEY = "diet:favorites";
+const MEMO_KEY = "diet:memo";
 /** 구버전에서 체중을 따로 보관하던 키 (읽기 호환용) */
 const LEGACY_WEIGHT_KEY = "diet:weights";
 const dayKey = (date: string) => `diet:day:${date}`;
@@ -54,8 +55,13 @@ export class LocalStorageAdapter implements StorageAdapter {
       profile: await this.getProfile(),
       settings: await this.getSettings(),
       favorites: await this.getFavorites(),
+      memo: this.read<string>(MEMO_KEY) ?? "",
       dayLog: await this.getDayLog(date),
     };
+  }
+
+  async saveMemo(memo: string): Promise<void> {
+    this.write(MEMO_KEY, memo);
   }
 
   async getProfile(): Promise<UserProfile | null> {

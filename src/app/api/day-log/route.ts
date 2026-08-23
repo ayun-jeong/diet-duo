@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from("day_logs")
-    .select("meals, water_ml, memo, steps, exercises, weight_kg")
+    .select("meals, water_ml, steps, exercises, weight_kg")
     .eq("user_id", user.id)
     .eq("date", date)
     .maybeSingle();

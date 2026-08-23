@@ -34,12 +34,12 @@ export async function GET(req: NextRequest) {
   const [userRes, logRes] = await Promise.all([
     db
       .from("app_users")
-      .select("height_cm, weight_kg, age, sex, activity, goal, settings, favorites")
+      .select("height_cm, weight_kg, age, sex, activity, goal, settings, favorites, memo")
       .eq("id", user.id)
       .maybeSingle(),
     db
       .from("day_logs")
-      .select("meals, water_ml, memo, steps, exercises, weight_kg")
+      .select("meals, water_ml, steps, exercises, weight_kg")
       .eq("user_id", user.id)
       .eq("date", dateParam)
       .maybeSingle(),
@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
     profile: rowToProfile(userRes.data),
     settings: rowToSettings(userRes.data),
     favorites: rowToFavorites(userRes.data),
+    memo: (userRes.data?.memo as string | null) ?? "",
     dayLog: rowToDayLog(dateParam, logRes.data),
   });
 }
