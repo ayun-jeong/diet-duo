@@ -13,8 +13,14 @@ interface Body {
   memo?: string;
 }
 
-/** 메모 최대 길이 — 무제한 텍스트가 그대로 들어오지 않도록 자른다. */
-const MEMO_MAX = 2000;
+/**
+ * 메모 저장 문자열의 최대 길이.
+ *
+ * 메모 여러 장이 JSON 배열로 직렬화돼 이 한 칸에 들어온다.
+ * 길다고 잘라내면 JSON 이 깨져 메모 전체를 못 읽게 되므로, 자르지 않고 거절한다.
+ * 클라이언트가 장수(20)와 장당 글자수(2000)를 이미 막고 있어 실제로 걸릴 일은 없다.
+ */
+const MEMO_MAX = 60000;
 
 /**
  * PUT /api/user
@@ -46,7 +52,12 @@ export async function PUT(req: NextRequest) {
   if (body.profile) Object.assign(payload, profileToRow(body.profile));
   if (body.settings) payload.settings = body.settings;
   if (Array.isArray(body.favorites)) payload.favorites = body.favorites;
-  if (typeof body.memo === "string") payload.memo = body.memo.slice(0, MEMO_MAX);
+  if (typeof body.memo === "string") {
+    if (body.memo.length > MEMO_MAX) {
+      return NextResponse.json({ error: "메모가 너무 깁니다" }, { status: 400 });
+    }
+    payload.memo = body.memo;
+  }
 
   const { error } = await db.from("app_users").upsert(payload, { onConflict: "id" });
   if (error) {
