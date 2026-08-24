@@ -20,7 +20,7 @@ function daysBetween(from: string, to: string): number {
  *
  * 기존 캘린더는 한 달을 그리려고 storage.getDayLog() 를 날짜마다 호출해
  * 최대 31회를 개별 왕복했고, 주간 차트는 7일치를 순차 await 했다.
- * meals jsonb 를 통째로 끌어올 필요도 없어 kcal·weight_kg 두 컬럼만 읽는다.
+ * meals jsonb 를 통째로 끌어올 필요 없이 숫자 컬럼만 읽는다.
  */
 export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from("day_logs")
-    .select("date, kcal, weight_kg")
+    .select("date, kcal, weight_kg, water_ml")
     .eq("user_id", user.id)
     .gte("date", from)
     .lte("date", to)
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     date: r.date as string,
     kcal: (r.kcal as number) ?? 0,
     weightKg: (r.weight_kg as number | null) ?? undefined,
+    waterMl: (r.water_ml as number | null) ?? 0,
   }));
 
   return NextResponse.json({ summaries });

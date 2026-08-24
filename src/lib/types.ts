@@ -86,6 +86,8 @@ export interface DaySummary {
   date: string;
   kcal: number;
   weightKg?: number;
+  /** 그날 마신 물 (ml). 추이 차트가 쓴다. */
+  waterMl?: number;
 }
 
 export function emptyDayLog(date: string): DayLog {

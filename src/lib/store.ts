@@ -152,6 +152,7 @@ export const useDiet = create<DietState>((set, get) => {
           date: log.date,
           kcal: sumMealKcal(log),
           weightKg: log.weightKg,
+          waterMl: log.waterMl,
         },
       },
     }));

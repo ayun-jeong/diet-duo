@@ -21,6 +21,14 @@ const WeeklyChart = dynamic(() => import("./WeeklyChart"), {
   ssr: false,
   loading: () => chartFallback,
 });
+const CalorieTrendChart = dynamic(
+  () => import("./TrendChart").then((m) => m.CalorieTrendChart),
+  { ssr: false, loading: () => chartFallback },
+);
+const WaterTrendChart = dynamic(
+  () => import("./TrendChart").then((m) => m.WaterTrendChart),
+  { ssr: false, loading: () => chartFallback },
+);
 const CalendarWidget = dynamic(() => import("./CalendarWidget"), {
   ssr: false,
   loading: () => <div className="h-[260px] animate-pulse rounded-2xl bg-gray-100" />,
@@ -111,8 +119,10 @@ export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {!opened.current ? null : tab === "stats" ? (
             <>
-              <WeightChart />
               <WeeklyChart />
+              <CalorieTrendChart />
+              <WaterTrendChart />
+              <WeightChart />
               <CalendarWidget />
             </>
           ) : (

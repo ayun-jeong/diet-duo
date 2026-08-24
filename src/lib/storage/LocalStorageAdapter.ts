@@ -117,6 +117,7 @@ export class LocalStorageAdapter implements StorageAdapter {
         date: d,
         kcal: raw ? sumMealKcal(normalizeDayLog(d, raw)) : 0,
         weightKg,
+        waterMl: raw?.waterMl ?? 0,
       });
     }
     return out;
