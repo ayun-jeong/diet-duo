@@ -93,7 +93,7 @@ export default function SidePanel({ open, tab, onClose }: Props) {
             </h2>
           ) : (
             <h2 className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <Star className="h-4 w-4" />
               즐겨찾기
             </h2>
           )}

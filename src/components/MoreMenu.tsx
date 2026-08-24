@@ -74,10 +74,7 @@ export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }
             <MenuItem icon={<BarChart2 className="h-4 w-4" />} onClick={run(onOpenStats)}>
               통계 · 캘린더
             </MenuItem>
-            <MenuItem
-              icon={<Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
-              onClick={run(onOpenFavorites)}
-            >
+            <MenuItem icon={<Star className="h-4 w-4" />} onClick={run(onOpenFavorites)}>
               즐겨찾기
             </MenuItem>
             <MenuItem icon={<Settings2 className="h-4 w-4" />} onClick={run(onOpenProfile)}>
