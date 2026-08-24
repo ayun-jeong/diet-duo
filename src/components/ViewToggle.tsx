@@ -27,7 +27,7 @@ export default function ViewToggle({ view, onChange }: Props) {
     <div
       role="tablist"
       aria-label="누구의 기록을 볼지"
-      className="flex shrink-0 items-center gap-0.5 rounded-full bg-gray-100 p-0.5"
+      className="flex w-full items-center gap-0.5 rounded-full bg-gray-100 p-0.5"
     >
       {options.map((o) => (
         <button
@@ -35,7 +35,7 @@ export default function ViewToggle({ view, onChange }: Props) {
           role="tab"
           aria-selected={view === o.key}
           onClick={() => onChange(o.key)}
-          className={`max-w-24 truncate rounded-full px-3 py-1 text-xs font-bold transition ${
+          className={`flex-1 truncate rounded-full px-3 py-1.5 text-xs font-bold transition ${
             view === o.key ? `${o.on} shadow-sm` : "text-gray-500 hover:text-gray-700"
           }`}
         >

@@ -99,8 +99,8 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                  <span>
+                <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-gray-400">
+                  <span className="whitespace-nowrap">
                     탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
                   </span>
                   {/* 내가 보낸 것 — 상대 화면에서 어떻게 보이는지 여기서도 확인된다 */}

@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  BarChart2,
-  HeartHandshake,
-  LogIn,
-  LogOut,
-  Settings2,
-  Star,
-  StickyNote,
-  User,
-  Utensils,
-} from "lucide-react";
+import { HeartHandshake, LogIn, StickyNote, User, Utensils } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AuthModal from "@/components/AuthModal";
 import DailySummary from "@/components/DailySummary";
@@ -23,6 +13,7 @@ import StickyMemos from "@/components/StickyMemos";
 import CompareSummary from "@/components/CompareSummary";
 import PartnerMealCard from "@/components/PartnerMealCard";
 import ViewToggle, { type HomeView } from "@/components/ViewToggle";
+import MoreMenu from "@/components/MoreMenu";
 import { useMediaQuery, WIDE_QUERY } from "@/lib/use-media-query";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
@@ -78,7 +69,6 @@ export default function Home() {
 
   const user = useAuth((s) => s.user);
   const authLoading = useAuth((s) => s.loading);
-  const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
 
   const addMemo = useDiet((s) => s.addMemo);
@@ -188,33 +178,15 @@ export default function Home() {
 
       <main className="mx-auto max-w-4xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6">
 
-        {/* 헤더 */}
-        <header className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Utensils className="h-5 w-5 text-emerald-600" />
-            <h1 className="text-lg font-extrabold tracking-tight">식단 기록</h1>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {/* 통계 버튼 */}
-            <button
-              onClick={() => { setSidePanelTab("stats"); setSidePanelOpen(true); }}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-medium text-gray-500 hover:bg-gray-50"
-              title="통계 · 캘린더"
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              통계
-            </button>
+        {/*
+          헤더 = 날짜.
+          "식단 기록" 제목 줄과 통계·즐겨찾기·내정보·로그아웃 버튼을 걷어내고
+          그 자리를 날짜에 내줬다. 가끔 쓰는 것들은 ⋯ 뒤로 접었다.
+        */}
+        <header className="mb-3 flex items-center justify-between gap-2">
+          <DateNav />
 
-            {/* 즐겨찾기 버튼 */}
-            <button
-              onClick={() => { setSidePanelTab("favorites"); setSidePanelOpen(true); }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-              title="즐겨찾기"
-            >
-              <Star className="h-4 w-4" />
-            </button>
-
-            {/* 메모 추가 */}
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               onClick={() => addMemo()}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
@@ -223,29 +195,8 @@ export default function Home() {
               <StickyNote className="h-4 w-4" />
             </button>
 
-            <button
-              onClick={() => setEditing(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-              title="내 정보"
-            >
-              <Settings2 className="h-4 w-4" />
-            </button>
-
-            {user ? (
-              <div className="flex items-center gap-1.5">
-                <span className="hidden items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 sm:flex">
-                  <User className="h-3 w-3" />
-                  {user.name ?? "카카오 유저"}
-                </span>
-                <button
-                  onClick={() => signOut()}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-                  title="로그아웃"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
+            {/* 로그인은 아직 안 한 사람에게 가장 중요한 버튼이라 접지 않는다 */}
+            {!user && (
               <button
                 onClick={() => setAuthModalOpen(true)}
                 className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -254,14 +205,19 @@ export default function Home() {
                 로그인
               </button>
             )}
+
+            <MoreMenu
+              onOpenStats={() => {
+                setSidePanelTab("stats");
+                setSidePanelOpen(true);
+              }}
+              onOpenProfile={() => setEditing(true)}
+            />
           </div>
         </header>
 
-        {/* 날짜 이동 + 보기 전환 */}
-        <div className="mb-4 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <DateNav />
-          </div>
+        {/* 보기 전환 — 셋이 가로를 똑같이 나눠 갖는다 (이름이 길어도 안 찌그러짐) */}
+        <div className="mb-3">
           <ViewToggle view={view} onChange={changeView} />
         </div>
 

@@ -456,8 +456,10 @@ export default function MealCard({ meal }: Props) {
                     <Sparkles className="h-3 w-3 shrink-0 text-emerald-400" />
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                  <span>탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g</span>
+                <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-gray-400">
+                  <span className="whitespace-nowrap">
+                    탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
+                  </span>
                   {/*
                     파트너가 보내온 항목. 이 표시가 없으면 내가 적지 않은 음식이
                     갑자기 생긴 것처럼 보인다. 지우는 건 평소처럼 휴지통이며,
