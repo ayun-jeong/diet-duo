@@ -3,8 +3,9 @@
 import { CheckCircle2, Dumbbell, Flame } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
+import { resolveTargets, sumDayTotals, type MacroTargets } from "@/lib/nutrition";
 import { useDiet } from "@/lib/store";
+import type { DayLog } from "@/lib/types";
 
 function stepsToKcal(steps: number, weightKg: number): number {
   return Math.round(steps * weightKg * 0.0005);
@@ -138,12 +139,40 @@ function WaterBar({ value, goalLabel, pct }: {
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────
-export default function DailySummary() {
+
+interface Props {
+  /**
+   * 다른 사람의 하루를 그릴 때 넘긴다. 없으면 내 기록을 쓴다.
+   *
+   * 파트너 화면을 따로 만들지 않고 이 컴포넌트를 그대로 재사용하기 위한 통로다.
+   * 같은 컴포넌트를 쓰면 두 화면이 어긋날 일이 없다.
+   */
+  log?: DayLog;
+  targets?: MacroTargets | null;
+  waterGoalMl?: number | null;
+  /** 걸음수를 칼로리로 환산할 때 쓰는 체중 */
+  weightKg?: number | null;
+  /** 목표 달성 축하 — 남의 기록에서는 띄우지 않는다 */
+  celebrate?: boolean;
+}
+
+export default function DailySummary({
+  log: logProp,
+  targets: targetsProp,
+  waterGoalMl: waterGoalProp,
+  weightKg: weightProp,
+  celebrate = true,
+}: Props = {}) {
   const profile = useDiet((s) => s.profile);
-  const log = useDiet((s) => s.log);
-  const waterMl = useDiet((s) => s.log.waterMl);
+  const myLog = useDiet((s) => s.log);
   const settings = useDiet((s) => s.settings);
-  const { waterCupMl, waterGoalMl } = settings;
+
+  const isOther = logProp !== undefined;
+  const log = logProp ?? myLog;
+  const waterMl = log.waterMl;
+  const waterCupMl = settings.waterCupMl;
+  const waterGoalMl = (isOther ? waterGoalProp : settings.waterGoalMl) ?? settings.waterGoalMl;
+  const bodyWeight = (isOther ? weightProp : profile?.weightKg) ?? null;
 
   const prevPct = useRef<number | null>(null);
   const celebratedDate = useRef<string | null>(null);
@@ -152,13 +181,13 @@ export default function DailySummary() {
   // (이전에는 아래 useEffect 가 `if (!profile) return null` 뒤에 있어
   //  eslint 의 rules-of-hooks 경고를 주석으로 눌러 둔 상태였다. 프로필이
   //  뒤늦게 도착하는 지금 구조에서는 훅 개수가 바뀌어 터질 수 있다.)
-  const target = profile
-    ? resolveTargets(profile, settings)
-    : { kcal: 0, carbs: 0, protein: 0, fat: 0 };
+  const target =
+    (isOther ? targetsProp : profile ? resolveTargets(profile, settings) : null) ??
+    { kcal: 0, carbs: 0, protein: 0, fat: 0 };
   const totals = sumDayTotals(log);
 
   const stepsBurned =
-    profile && (log.steps ?? 0) > 0 ? stepsToKcal(log.steps ?? 0, profile.weightKg) : 0;
+    bodyWeight && (log.steps ?? 0) > 0 ? stepsToKcal(log.steps ?? 0, bodyWeight) : 0;
   const exerciseBurned = log.exercises.reduce((sum, e) => sum + e.burned, 0);
   const totalBurned = stepsBurned + exerciseBurned;
 
@@ -176,9 +205,10 @@ export default function DailySummary() {
   const waterGoalLabel = waterGoal >= 1000 ? `${(waterGoal / 1000).toFixed(1)}L` : `${waterGoal}ml`;
 
   const hasProfile = !!profile;
+  const canCelebrate = celebrate && !isOther && hasProfile;
 
   useEffect(() => {
-    if (!hasProfile) return;
+    if (!canCelebrate) return;
     if (prevPct.current === null) { prevPct.current = rawPct; return; }
     const prev = prevPct.current;
     prevPct.current = rawPct;
@@ -190,9 +220,11 @@ export default function DailySummary() {
         duration: 4000,
       });
     }
-  }, [hasProfile, rawPct, log.date, totals.kcal]);
+  }, [canCelebrate, rawPct, log.date, totals.kcal]);
 
-  if (!profile) return null;
+  // 내 요약은 프로필이 있어야 목표를 계산할 수 있다.
+  // 남의 요약은 목표를 받아 오므로 내 프로필과 무관하게 그린다.
+  if (!isOther && !profile) return null;
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">

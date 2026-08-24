@@ -17,7 +17,6 @@ import type {
   UserProfile,
 } from "@/lib/types";
 import CoupleSetup from "./CoupleSetup";
-import PartnerPanel from "./PartnerPanel";
 import SafeSection from "./SafeSection";
 
 const ACTIVITIES = Object.keys(ACTIVITY_LABELS) as ActivityLevel[];
@@ -272,11 +271,12 @@ export default function ProfileForm({ onDone }: Props) {
       커플 기능은 부가 기능이다. 여기서 무슨 일이 생겨도 프로필 설정·저장은
       항상 가능해야 하므로 에러 경계로 격리한다.
     */}
+    {/*
+      파트너의 "기록"은 홈에서 보여준다 (나 / 파트너 / 함께 전환).
+      여기 남는 건 한 번 하고 끝나는 "연결" 설정뿐이다.
+    */}
     <SafeSection label="커플 연결">
       <CoupleSetup />
-    </SafeSection>
-    <SafeSection label="파트너 기록">
-      <PartnerPanel />
     </SafeSection>
     </div>
   );

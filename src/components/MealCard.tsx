@@ -5,8 +5,7 @@ import {
   ChevronUp,
   Coffee,
   Loader2,
-  Lock,
-  LockOpen,
+  HeartHandshake,
   Moon,
   Pencil,
   Plus,
@@ -14,6 +13,7 @@ import {
   Sun,
   Sunrise,
   Trash2,
+  Undo2,
   Sparkles,
   Check,
   X,
@@ -81,12 +81,17 @@ export default function MealCard({ meal }: Props) {
   const removeFood = useDiet((s) => s.removeFood);
   const addFavorite = useDiet((s) => s.addFavorite);
   const removeFavorite = useDiet((s) => s.removeFavorite);
+  const shareFood = useDiet((s) => s.shareFood);
+  const unshareFood = useDiet((s) => s.unshareFood);
+  const partner = useDiet((s) => s.partner);
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditState | null>(null);
   const [showFav, setShowFav] = useState(false);
+  /** 연동 요청이 오가는 동안 그 항목의 버튼만 잠근다 */
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const [showRec, setShowRec] = useState(false);
   const [recItems, setRecItems] = useState<RecommendItem[]>([]);
   const [recLoading, setRecLoading] = useState(false);
@@ -173,8 +178,21 @@ export default function MealCard({ meal }: Props) {
     cancelEdit();
   };
 
-  const togglePrivate = async (food: FoodItem) => {
-    await updateFood(meal, food.id, { private: !food.private });
+  /**
+   * 파트너 식단에 그대로 넣기 / 되돌리기.
+   *
+   * 보내는 순간 사본이 만들어지고 그때부터는 상대의 기록이다.
+   * 상대가 지워도 내 것은 그대로 남고, 내가 되돌려도 내 기록은 건드리지 않는다.
+   */
+  const toggleShare = async (food: FoodItem) => {
+    if (sharingId) return;
+    setSharingId(food.id);
+    try {
+      if (food.sharedItemId) await unshareFood(meal, food.id);
+      else await shareFood(meal, food.id);
+    } finally {
+      setSharingId(null);
+    }
   };
 
   const toggleFavorite = async (food: FoodItem) => {
@@ -438,8 +456,19 @@ export default function MealCard({ meal }: Props) {
                     <Sparkles className="h-3 w-3 shrink-0 text-emerald-400" />
                   )}
                 </div>
-                <div className="text-[11px] text-gray-400">
-                  탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                  <span>탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g</span>
+                  {/*
+                    파트너가 보내온 항목. 이 표시가 없으면 내가 적지 않은 음식이
+                    갑자기 생긴 것처럼 보인다. 지우는 건 평소처럼 휴지통이며,
+                    지워도 보낸 쪽 기록은 그대로다.
+                  */}
+                  {food.sharedFrom && (
+                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-pink-50 px-1.5 text-[10px] font-medium text-pink-600">
+                      <HeartHandshake className="h-2.5 w-2.5" />
+                      {food.sharedFrom.name} 보냄
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -473,22 +502,33 @@ export default function MealCard({ meal }: Props) {
                     }`}
                   />
                 </button>
-                {/* 비공개 (로그인 시) */}
-                {user && (
+                {/* 파트너 식단에 연동 (커플 연결 시) */}
+                {user && partner.linked && (
                   <button
-                    onClick={() => togglePrivate(food)}
-                    className={`rounded-md p-1 transition ${
-                      food.private
-                        ? "text-rose-400 hover:bg-rose-50"
-                        : "text-gray-300 hover:bg-gray-200 hover:text-gray-500"
+                    onClick={() => toggleShare(food)}
+                    disabled={sharingId === food.id}
+                    className={`rounded-md p-1 transition disabled:opacity-50 ${
+                      food.sharedItemId
+                        ? "text-pink-500 hover:bg-pink-50"
+                        : "text-gray-300 hover:bg-pink-50 hover:text-pink-400"
                     }`}
-                    aria-label={food.private ? "공개로 전환" : "비공개로 전환"}
-                    title={food.private ? "파트너에게 숨김" : "파트너에게 공개"}
+                    aria-label={
+                      food.sharedItemId
+                        ? `${partner.name}의 식단에서 빼기`
+                        : `${partner.name}의 식단에도 넣기`
+                    }
+                    title={
+                      food.sharedItemId
+                        ? `${partner.name}에게 보냄 — 눌러서 되돌리기`
+                        : `${partner.name}의 식단에도 넣기`
+                    }
                   >
-                    {food.private ? (
-                      <Lock className="h-3.5 w-3.5" />
+                    {sharingId === food.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : food.sharedItemId ? (
+                      <Undo2 className="h-3.5 w-3.5" />
                     ) : (
-                      <LockOpen className="h-3.5 w-3.5" />
+                      <HeartHandshake className="h-3.5 w-3.5" />
                     )}
                   </button>
                 )}

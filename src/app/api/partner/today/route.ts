@@ -1,42 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, DB_DISABLED_RESPONSE } from "@/lib/server/db";
 import { getSessionUser } from "@/lib/server/session";
-import { isValidDate, rowToDayLog } from "@/lib/server/rows";
-import { MEAL_TYPES, emptyDayLog } from "@/lib/types";
-import type { DayLog } from "@/lib/types";
+import { getPartnerId } from "@/lib/server/couple";
+import { isValidDate, rowToDayLog, rowToProfile, rowToSettings } from "@/lib/server/rows";
+import { resolveTargets } from "@/lib/nutrition";
+import { emptyDayLog } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-/** private 항목은 이름·양을 가리고 칼로리만 남긴다. */
-function maskPrivateItems(log: DayLog): DayLog {
-  const meals = {} as DayLog["meals"];
-  for (const meal of MEAL_TYPES) {
-    meals[meal] = (log.meals[meal] ?? []).map((f) =>
-      f.private ? { ...f, name: "비공개 음식", amount: "" } : f,
-    );
-  }
-  return { ...log, meals };
-}
-
-/** GET /api/partner/today?date=YYYY-MM-DD — 파트너의 하루 기록 (비공개 항목 마스킹) */
+/**
+ * GET /api/partner/today?date=YYYY-MM-DD — 파트너의 하루 기록.
+ *
+ * 목표 칼로리·영양소는 함께 내려준다. 상대가 얼마나 먹었는지만 알고 목표를 모르면
+ * 진행률을 그릴 수 없어 "많이 먹었다"를 판단할 기준이 사라진다.
+ * 체중은 여전히 공유하지 않는다.
+ */
 export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
 
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: couple } = await db
-    .from("couples")
-    .select("user_a, user_b")
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .eq("status", "active")
-    .maybeSingle();
-
-  const partnerId = couple
-    ? couple.user_a === user.id
-      ? couple.user_b
-      : couple.user_a
-    : null;
+  const partnerId = await getPartnerId(user.id);
 
   // 커플 미연결 → 204
   if (!partnerId) return new NextResponse(null, { status: 204 });
@@ -46,9 +31,12 @@ export async function GET(req: NextRequest) {
     ? dateParam
     : new Date().toISOString().slice(0, 10);
 
-  const [nameRes, logRes] = await Promise.all([
-    // display_name 은 app_users 에 있다 (구 코드는 user_profiles 를 조회해 항상 null 이었다).
-    db.from("app_users").select("display_name").eq("id", partnerId).maybeSingle(),
+  const [userRes, logRes] = await Promise.all([
+    db
+      .from("app_users")
+      .select("display_name, height_cm, weight_kg, age, sex, activity, goal, settings")
+      .eq("id", partnerId)
+      .maybeSingle(),
     db
       .from("day_logs")
       .select("meals, water_ml, steps, exercises, weight_kg")
@@ -59,10 +47,19 @@ export async function GET(req: NextRequest) {
 
   const log = rowToDayLog(date, logRes.data) ?? emptyDayLog(date);
 
+  // 프로필을 아직 안 채웠으면 목표를 계산할 수 없다 — 그때는 null 로 두고
+  // 화면이 진행률 대신 섭취량만 그리게 한다.
+  const profile = rowToProfile(userRes.data);
+  const settings = rowToSettings(userRes.data);
+  const targets = profile ? resolveTargets(profile, settings ?? undefined) : null;
+
   return NextResponse.json({
-    ...maskPrivateItems(log),
+    ...log,
     // 파트너 체중은 공유하지 않는다.
     weightKg: undefined,
-    partnerName: nameRes.data?.display_name || "파트너",
+    partnerName: userRes.data?.display_name || "파트너",
+    targets,
+    // 물 목표는 사람마다 다르므로 함께 내려준다 (내 목표로 상대 진행률을 그리면 틀린다).
+    waterGoalMl: settings?.waterGoalMl ?? null,
   });
 }

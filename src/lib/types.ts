@@ -39,6 +39,18 @@ export const MEAL_LABELS: Record<MealType, string> = {
   snack: "간식·음료",
 };
 
+/**
+ * 파트너가 보내와 내 기록에 들어온 항목의 출처.
+ *
+ * 사본이므로 보낸 쪽과는 완전히 별개다. 내가 지워도 상대 기록은 그대로고,
+ * 상대가 지워도 내 것은 남는다. 이 정보는 "누가 보냈는지"를 보여주고,
+ * 보낸 사람만 되돌릴 수 있게 하는 데만 쓴다.
+ */
+export interface SharedFrom {
+  userId: string;
+  name: string;
+}
+
 /** 음식 1개 항목 (입력된 양 기준의 최종 영양값) */
 export interface FoodItem {
   id: string;
@@ -49,8 +61,14 @@ export interface FoodItem {
   protein: number; // g
   fat: number; // g
   source: "ai" | "db" | "manual";
-  /** true = 커플에게 이름/양을 숨김 (칼로리만 공유) */
-  private?: boolean;
+  /**
+   * 파트너 기록에 만들어 둔 사본의 id.
+   * 있으면 "연동됨" 상태이며, 이 값으로 사본을 되돌릴 수 있다.
+   * 상대가 이미 지웠으면 되돌리기는 조용히 넘어간다.
+   */
+  sharedItemId?: string;
+  /** 파트너가 보내와 들어온 항목이면 그 출처 */
+  sharedFrom?: SharedFrom;
 }
 
 /** 하루 기록 */

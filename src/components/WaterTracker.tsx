@@ -4,9 +4,22 @@ import { ChevronDown, ChevronUp, Droplets, Minus, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDiet } from "@/lib/store";
 
-export default function WaterTracker() {
-  const waterMl = useDiet((s) => s.log.waterMl);
-  const { waterCupMl, waterGoalMl } = useDiet((s) => s.settings);
+interface Props {
+  /**
+   * 남의 물 기록을 그릴 때 넘긴다. 넘기면 읽기 전용이 된다.
+   * 파트너 화면을 따로 만들지 않고 이 컴포넌트를 그대로 쓰기 위한 통로다.
+   */
+  readOnlyMl?: number;
+  readOnlyGoalMl?: number | null;
+}
+
+export default function WaterTracker({ readOnlyMl, readOnlyGoalMl }: Props = {}) {
+  const myWaterMl = useDiet((s) => s.log.waterMl);
+  const { waterCupMl, waterGoalMl: myGoalMl } = useDiet((s) => s.settings);
+
+  const readOnly = readOnlyMl !== undefined;
+  const waterMl = readOnly ? readOnlyMl : myWaterMl;
+  const waterGoalMl = (readOnly ? readOnlyGoalMl : myGoalMl) ?? myGoalMl;
   const setSettings = useDiet((s) => s.setSettings);
   const addWater = useDiet((s) => s.addWater);
   const setWater = useDiet((s) => s.setWater);
@@ -67,12 +80,14 @@ export default function WaterTracker() {
             {waterLabel}
             <span className="text-sm font-normal text-gray-400"> / {goalLabel}</span>
           </span>
+          {!readOnly && (
           <button
             onClick={() => setShowSettings((v) => !v)}
             className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:bg-gray-50"
           >
             {showSettings ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
+          )}
         </div>
       </div>
 
@@ -83,9 +98,10 @@ export default function WaterTracker() {
           return (
             <button
               key={i}
-              onClick={() => handleCupClick(i)}
+              onClick={() => !readOnly && handleCupClick(i)}
+              disabled={readOnly}
               title={`${(i + 1) * cup}ml`}
-              className="group flex justify-center transition-transform active:scale-90"
+              className="group flex justify-center transition-transform active:scale-90 disabled:cursor-default disabled:active:scale-100"
             >
               <svg
                 viewBox="0 0 24 28"
@@ -104,7 +120,8 @@ export default function WaterTracker() {
         })}
       </div>
 
-      {/* +/- 버튼 */}
+      {/* +/- 버튼 — 남의 기록에서는 조작할 수 없다 */}
+      {!readOnly && (
       <div className="mt-auto flex items-center gap-2 pt-3">
         <button
           onClick={() => addWater(-cup)}
@@ -121,9 +138,10 @@ export default function WaterTracker() {
           {cup}ml 추가
         </button>
       </div>
+      )}
 
       {/* 설정 */}
-      {showSettings && (
+      {showSettings && !readOnly && (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
           <label className="block">
             <span className="mb-1 block text-xs text-gray-400">컵 용량 (ml)</span>

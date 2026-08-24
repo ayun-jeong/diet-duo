@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { storage, setStorage, LocalStorageAdapter, DbUnavailableError } from "./storage";
 import { readLastUserId, readMirror, writeLastUserId, writeMirror } from "./mirror";
+import { apiUrl } from "./api";
+import type { MacroTargets } from "./nutrition";
 import {
   MEMO_MAX_COUNT,
   MEMO_TEXT_MAX,
@@ -13,6 +15,8 @@ import {
 } from "./memo";
 import {
   DEFAULT_SETTINGS,
+  MEAL_LABELS,
+  MEAL_TYPES,
   emptyDayLog,
   normalizeDayLog,
   sumMealKcal,
@@ -25,6 +29,37 @@ import {
   type MealType,
   type UserProfile,
 } from "./types";
+
+/**
+ * 파트너의 하루.
+ *
+ * linked 가 false 면 커플 연결이 없다는 뜻이고, 화면은 파트너 관련 요소를
+ * 전부 감춘다. loading 은 파트너 조회만 가리키며 내 화면을 막지 않는다.
+ */
+export interface PartnerState {
+  linked: boolean;
+  name: string;
+  log: DayLog | null;
+  /** 파트너의 목표 (프로필 미설정이면 null) */
+  targets: MacroTargets | null;
+  /** 파트너의 물 목표 (미설정이면 null) */
+  waterGoalMl: number | null;
+  loading: boolean;
+  failed: boolean;
+  /** log 가 어느 날짜의 것인지 — 날짜를 옮겼을 때 옛 기록을 그리지 않기 위해 */
+  date: string | null;
+}
+
+const EMPTY_PARTNER: PartnerState = {
+  linked: false,
+  name: "파트너",
+  log: null,
+  targets: null,
+  waterGoalMl: null,
+  loading: false,
+  failed: false,
+  date: null,
+};
 
 /** 로컬 기준 오늘 날짜 (YYYY-MM-DD) */
 export function todayStr(): string {
@@ -59,6 +94,8 @@ interface DietState {
   favorites: FavoriteFood[];
   /** 날짜와 무관하게 유지되는 메모 (포스트잇) — 여러 장을 붙일 수 있다 */
   memos: Memo[];
+  /** 커플 파트너의 같은 날짜 기록 */
+  partner: PartnerState;
   date: string;
   log: DayLog;
 
@@ -88,6 +125,9 @@ interface DietState {
   setWater: (ml: number) => void;
   addFavorite: (food: Omit<FavoriteFood, "id">) => void;
   removeFavorite: (id: string) => void;
+  loadPartner: (date?: string) => Promise<void>;
+  shareFood: (meal: MealType, id: string) => Promise<void>;
+  unshareFood: (meal: MealType, id: string) => Promise<void>;
   addMemo: () => void;
   updateMemo: (id: string, patch: Partial<Omit<Memo, "id">>) => void;
   removeMemo: (id: string) => void;
@@ -138,6 +178,37 @@ export const useDiet = create<DietState>((set, get) => {
     });
   }
 
+  /**
+   * "연동됨" 표시를 실제와 맞춘다.
+   *
+   * 파트너가 자기 쪽에서 사본을 지우면 내 항목만 연동됨으로 남는다.
+   * 그대로 두면 되돌리기 버튼이 아무 일도 하지 않는 것처럼 보이므로,
+   * 파트너 기록을 새로 받을 때마다 사라진 사본의 표시를 걷어낸다.
+   * 내 항목 자체는 건드리지 않는다 — 상대가 지웠다고 내 기록이 지워지면 안 된다.
+   */
+  function reconcileShared(partnerLog: DayLog) {
+    const { log } = get();
+    const alive = new Set<string>();
+    for (const meal of MEAL_TYPES) {
+      for (const f of partnerLog.meals[meal] ?? []) alive.add(f.id);
+    }
+
+    let changed = false;
+    const meals = {} as DayLog["meals"];
+    for (const meal of MEAL_TYPES) {
+      meals[meal] = (log.meals[meal] ?? []).map((f) => {
+        if (f.sharedItemId && !alive.has(f.sharedItemId)) {
+          changed = true;
+          const { sharedItemId: _drop, ...rest } = f;
+          return rest;
+        }
+        return f;
+      });
+    }
+
+    if (changed) commitLog({ ...log, meals });
+  }
+
   /** 메모 목록 저장 — 한 칸에 직렬화해 넣으므로 항상 전체를 함께 쓴다. */
   function commitMemos(next: Memo[]) {
     const prev = get().memos;
@@ -169,6 +240,7 @@ export const useDiet = create<DietState>((set, get) => {
     settings: DEFAULT_SETTINGS,
     favorites: [],
     memos: [],
+    partner: EMPTY_PARTNER,
     date: todayStr(),
     log: emptyDayLog(todayStr()),
     summaries: {},
@@ -268,6 +340,9 @@ export const useDiet = create<DietState>((set, get) => {
         if (userId) {
           writeMirror(userId, data);
           writeLastUserId(userId);
+          void get().loadPartner(targetDate);
+        } else {
+          set({ partner: EMPTY_PARTNER });
         }
       } catch (e) {
         if (seq !== initSeq) return;
@@ -302,6 +377,7 @@ export const useDiet = create<DietState>((set, get) => {
         settings: DEFAULT_SETTINGS,
         favorites: [],
         memos: [],
+        partner: EMPTY_PARTNER,
         summaries: {},
         loadedRanges: [],
         storageGen: get().storageGen + 1,
@@ -371,7 +447,8 @@ export const useDiet = create<DietState>((set, get) => {
     setDate: async (date) => {
       if (date === get().date) return;
       // 날짜만 먼저 바꿔 이동이 즉시 반영되게 한다.
-      set({ date, log: emptyDayLog(date) });
+      set({ date, log: emptyDayLog(date), partner: { ...get().partner, log: null } });
+      void get().loadPartner(date);
       try {
         const log = await storage.getDayLog(date);
         // 그 사이 사용자가 또 날짜를 옮겼다면 무시한다.
@@ -425,6 +502,120 @@ export const useDiet = create<DietState>((set, get) => {
 
     removeFavorite: (id) => {
       commitFavorites(get().favorites.filter((f) => f.id !== id));
+    },
+
+    /**
+     * 파트너의 같은 날짜 기록을 불러온다.
+     *
+     * 내 화면을 막지 않는다 — 실패해도 토스트를 띄우지 않고 파트너 칸에만 표시한다.
+     * 날짜를 빠르게 넘기면 늦게 도착한 응답이 최신 날짜를 덮을 수 있어,
+     * 응답을 받은 뒤 날짜가 그대로인지 확인한다.
+     */
+    loadPartner: async (date) => {
+      const targetDate = date ?? get().date;
+
+      // 비로그인은 파트너 개념 자체가 없다 (로컬 저장소 모드).
+      if (!get().userId) {
+        set({ partner: EMPTY_PARTNER });
+        return;
+      }
+
+      set((s) => ({ partner: { ...s.partner, loading: true, failed: false } }));
+
+      try {
+        const res = await fetch(apiUrl(`/api/partner/today?date=${targetDate}`), {
+          credentials: "include",
+        });
+        if (get().date !== targetDate) return;
+
+        // 204 = 커플 미연결
+        if (res.status === 204) {
+          set({ partner: EMPTY_PARTNER });
+          return;
+        }
+        if (!res.ok) throw new Error(`요청 실패 (${res.status})`);
+
+        const json = await res.json();
+        if (get().date !== targetDate) return;
+
+        const partnerLog = normalizeDayLog(targetDate, json);
+        set({
+          partner: {
+            linked: true,
+            name: json.partnerName ?? "파트너",
+            log: partnerLog,
+            targets: json.targets ?? null,
+            waterGoalMl: json.waterGoalMl ?? null,
+            loading: false,
+            failed: false,
+            date: targetDate,
+          },
+        });
+
+        reconcileShared(partnerLog);
+      } catch (e) {
+        if (get().date !== targetDate) return;
+        console.error("[store] loadPartner 실패:", e);
+        set((s) => ({ partner: { ...s.partner, loading: false, failed: true } }));
+      }
+    },
+
+    /** 내가 먹은 것을 파트너의 같은 끼니에 사본으로 보낸다. */
+    shareFood: async (meal, id) => {
+      const { log, date, partner } = get();
+      const food = log.meals[meal].find((f) => f.id === id);
+      if (!food || food.sharedItemId) return;
+
+      if (!partner.linked) {
+        toast.error("연결된 파트너가 없어요.");
+        return;
+      }
+
+      try {
+        const res = await fetch(apiUrl("/api/partner/share"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, meal, food }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? `요청 실패 (${res.status})`);
+
+        get().updateFood(meal, id, { sharedItemId: json.itemId });
+        toast.success(`${partner.name}의 ${MEAL_LABELS[meal]}에 추가했어요.`);
+        void get().loadPartner(date);
+      } catch (e) {
+        toast.error(`연동 실패: ${errText(e)}`);
+      }
+    },
+
+    /**
+     * 잘못 보낸 것을 되돌린다.
+     * 상대가 먼저 지웠으면 그대로 성공으로 친다 — 결과가 같기 때문이다.
+     */
+    unshareFood: async (meal, id) => {
+      const { log, date } = get();
+      const food = log.meals[meal].find((f) => f.id === id);
+      if (!food?.sharedItemId) return;
+
+      const query = `date=${date}&meal=${meal}&itemId=${encodeURIComponent(food.sharedItemId)}`;
+
+      try {
+        const res = await fetch(apiUrl(`/api/partner/share?${query}`), {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? `요청 실패 (${res.status})`);
+
+        get().updateFood(meal, id, { sharedItemId: undefined });
+        toast.success(
+          json?.alreadyGone ? "파트너가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
+        );
+        void get().loadPartner(date);
+      } catch (e) {
+        toast.error(`되돌리기 실패: ${errText(e)}`);
+      }
     },
 
     /**

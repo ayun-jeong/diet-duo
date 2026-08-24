@@ -12,15 +12,24 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDiet } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
+import type { DayLog } from "@/lib/types";
 
 function stepsToKcal(steps: number, weightKg: number): number {
   return Math.round(steps * weightKg * 0.0005);
 }
 
-export default function ExerciseCard() {
-  const exercises = useDiet((s) => s.log.exercises);
-  const log = useDiet((s) => s.log);
+interface Props {
+  /** 남의 운동 기록을 그릴 때 넘긴다. 넘기면 읽기 전용이 된다. */
+  readOnlyLog?: DayLog;
+}
+
+export default function ExerciseCard({ readOnlyLog }: Props = {}) {
+  const myLog = useDiet((s) => s.log);
   const profile = useDiet((s) => s.profile);
+
+  const readOnly = readOnlyLog !== undefined;
+  const log = readOnlyLog ?? myLog;
+  const exercises = log.exercises;
   const addExercise = useDiet((s) => s.addExercise);
   const removeExercise = useDiet((s) => s.removeExercise);
   const setSteps = useDiet((s) => s.setSteps);
@@ -42,8 +51,9 @@ export default function ExerciseCard() {
   }, [log.date, log.steps]);
 
   const totalBurned = exercises.reduce((s, e) => s + e.burned, 0);
+  // 파트너 체중은 공유하지 않으므로 남의 기록에서는 걸음수를 칼로리로 환산하지 않는다.
   const burnedKcal =
-    profile && log.steps && log.steps > 0
+    !readOnly && profile && log.steps && log.steps > 0
       ? stepsToKcal(log.steps, profile.weightKg)
       : 0;
   const grandTotal = totalBurned + burnedKcal;
@@ -114,22 +124,27 @@ export default function ExerciseCard() {
                 <span className="shrink-0 text-sm font-semibold text-rose-600">
                   {ex.burned.toLocaleString()} kcal
                 </span>
-                <button
-                  onClick={() => removeExercise(ex.id)}
-                  className="shrink-0 rounded-md p-1 text-rose-300 hover:bg-rose-100 hover:text-rose-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => removeExercise(ex.id)}
+                    className="shrink-0 rounded-md p-1 text-rose-300 hover:bg-rose-100 hover:text-rose-500"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </li>
             ))}
             {exercises.length === 0 && (
               <li className="rounded-xl border border-dashed border-gray-200 py-3 text-center text-xs text-gray-400">
-                운동을 입력하면 소모 칼로리가 자동 계산됩니다
+                {readOnly
+                  ? "아직 운동 기록이 없어요"
+                  : "운동을 입력하면 소모 칼로리가 자동 계산됩니다"}
               </li>
             )}
           </ul>
 
-          {/* 입력창 */}
+          {/* 입력창 — 남의 기록에서는 그리지 않는다 */}
+          {!readOnly && (
           <div className="flex gap-2">
             <input
               value={query}
@@ -147,6 +162,7 @@ export default function ExerciseCard() {
               추가
             </button>
           </div>
+          )}
         </div>
 
         {/* 걸음수 */}
@@ -156,18 +172,24 @@ export default function ExerciseCard() {
             오늘 걸음수
           </div>
           <div>
-            <div className="flex items-baseline gap-1.5">
-              <input
-                type="number"
-                value={stepsInput}
-                min={0}
-                onChange={(e) => { editing.current = true; setStepsInput(e.target.value); }}
-                onBlur={saveSteps}
-                onKeyDown={(e) => e.key === "Enter" && saveSteps()}
-                placeholder="0"
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-rose-400"
-              />
-            </div>
+            {readOnly ? (
+              <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
+                {(log.steps ?? 0).toLocaleString()}
+              </div>
+            ) : (
+              <div className="flex items-baseline gap-1.5">
+                <input
+                  type="number"
+                  value={stepsInput}
+                  min={0}
+                  onChange={(e) => { editing.current = true; setStepsInput(e.target.value); }}
+                  onBlur={saveSteps}
+                  onKeyDown={(e) => e.key === "Enter" && saveSteps()}
+                  placeholder="0"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
+                />
+              </div>
+            )}
             <p className="mt-1 text-right text-xs text-gray-400">걸음</p>
           </div>
           {burnedKcal > 0 ? (
@@ -176,7 +198,9 @@ export default function ExerciseCard() {
               {burnedKcal.toLocaleString()} kcal
             </div>
           ) : (
-            <p className="text-center text-xs text-gray-300">걸음수 입력 시<br />칼로리 반영</p>
+            <p className="text-center text-xs text-gray-300">
+              {readOnly ? <>체중을 공유하지 않아<br />칼로리는 계산하지 않아요</> : <>걸음수 입력 시<br />칼로리 반영</>}
+            </p>
           )}
         </div>
 
