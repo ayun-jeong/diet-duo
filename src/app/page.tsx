@@ -172,7 +172,6 @@ export default function Home() {
       <SidePanel
         open={sidePanelOpen}
         tab={sidePanelTab}
-        onTabChange={setSidePanelTab}
         onClose={() => setSidePanelOpen(false)}
       />
 
@@ -209,6 +208,10 @@ export default function Home() {
             <MoreMenu
               onOpenStats={() => {
                 setSidePanelTab("stats");
+                setSidePanelOpen(true);
+              }}
+              onOpenFavorites={() => {
+                setSidePanelTab("favorites");
                 setSidePanelOpen(true);
               }}
               onOpenProfile={() => setEditing(true)}

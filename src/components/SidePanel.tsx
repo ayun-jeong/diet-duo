@@ -38,12 +38,12 @@ export type SidePanelTab = "stats" | "favorites";
 
 interface Props {
   open: boolean;
+  /** 무엇을 열었는지 — ⋯ 메뉴가 정한다 */
   tab: SidePanelTab;
-  onTabChange: (t: SidePanelTab) => void;
   onClose: () => void;
 }
 
-export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
+export default function SidePanel({ open, tab, onClose }: Props) {
   /**
    * 패널은 CSS transform 으로 밀어 넣는 구조라 닫혀 있어도 계속 마운트돼 있었다.
    * 그래서 첫 진입에 보이지도 않는 캘린더가 한 달치를, 주간 차트가 7일치를 조회했다.
@@ -80,32 +80,23 @@ export default function SidePanel({ open, tab, onTabChange, onClose }: Props) {
         aria-hidden={!open}
         inert={!open}
       >
-        {/* 패널 헤더 */}
+        {/*
+          패널 헤더 = 제목.
+          통계와 즐겨찾기는 서로 볼 일이 없는데 한 패널에 탭으로 묶여 있었다.
+          이제 ⋯ 메뉴에서 각각 따로 열리므로, 여기서는 무엇을 열었는지만 말한다.
+        */}
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-3">
-          <div className="flex gap-1">
-            <button
-              onClick={() => onTabChange("stats")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                tab === "stats"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-              }`}
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              통계
-            </button>
-            <button
-              onClick={() => onTabChange("favorites")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                tab === "favorites"
-                  ? "bg-amber-50 text-amber-600"
-                  : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-              }`}
-            >
-              <Star className={`h-3.5 w-3.5 ${tab === "favorites" ? "fill-amber-400 text-amber-400" : ""}`} />
+          {tab === "stats" ? (
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+              <BarChart2 className="h-4 w-4" />
+              통계 · 캘린더
+            </h2>
+          ) : (
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
               즐겨찾기
-            </button>
-          </div>
+            </h2>
+          )}
 
           <button
             onClick={onClose}

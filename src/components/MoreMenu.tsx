@@ -1,11 +1,12 @@
 "use client";
 
-import { BarChart2, LogIn, LogOut, MoreHorizontal, Settings2, User } from "lucide-react";
+import { BarChart2, LogIn, LogOut, MoreHorizontal, Settings2, Star, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-store";
 
 interface Props {
   onOpenStats: () => void;
+  onOpenFavorites: () => void;
   onOpenProfile: () => void;
 }
 
@@ -16,7 +17,7 @@ interface Props {
  * 매일 보는 화면 맨 위를 하나씩 차지하고 있었다.
  * 좁은 화면에서는 아래에서 올라오는 시트로, 넓은 화면에서는 버튼 아래 목록으로 편다.
  */
-export default function MoreMenu({ onOpenStats, onOpenProfile }: Props) {
+export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }: Props) {
   const user = useAuth((s) => s.user);
   const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
@@ -72,6 +73,12 @@ export default function MoreMenu({ onOpenStats, onOpenProfile }: Props) {
 
             <MenuItem icon={<BarChart2 className="h-4 w-4" />} onClick={run(onOpenStats)}>
               통계 · 캘린더
+            </MenuItem>
+            <MenuItem
+              icon={<Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+              onClick={run(onOpenFavorites)}
+            >
+              즐겨찾기
             </MenuItem>
             <MenuItem icon={<Settings2 className="h-4 w-4" />} onClick={run(onOpenProfile)}>
               내 정보
