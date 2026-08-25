@@ -18,8 +18,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    // 아이콘 배경과 같은 색. 스플래시에서 아이콘이 흰 사각형으로 떠 보이지 않게 한다.
-    background_color: "#faf6f5",
+    // 아이콘 배경과 같은 색. 스플래시에서 아이콘이 사각형으로 떠 보이지 않게 한다.
+    background_color: "#00D88C",
     theme_color: "#059669",
     lang: "ko",
     icons: [
