@@ -69,32 +69,6 @@ export interface FoodItem {
   sharedItemId?: string;
   /** 메이트가 보내와 들어온 항목이면 그 출처 */
   sharedFrom?: SharedFrom;
-  /**
-   * 아직 받아들이지 않은 제안.
-   *
-   * 메이트가 보낸 항목은 이 표시를 달고 들어와, 받는 쪽이 "담기"를 누르기
-   * 전까지 어떤 합계에도 들어가지 않는다. 같이 먹는 사이라면 대신 적어 주는
-   * 것이 편하지만, 그렇지 않은 두 사람에게는 내 숫자가 남의 손에 바뀌는 일이
-   * 된다.
-   */
-  pending?: boolean;
-  /**
-   * 메이트가 담기를 눌러 확정된 사본.
-   *
-   * pending 을 지우는 대신 false 로 남기는 이유는, "담았다" 와 "이 기능이 있기
-   * 전에 보내진 옛 항목" 이 둘 다 필드 없음이 되어 구분할 수 없기 때문이다.
-   */
-  sharedAccepted?: boolean;
-}
-
-/**
- * 합계에 넣을 항목인지.
- *
- * 요약·끼니 소계·캘린더·주간 차트가 저마다 다른 함수로 합을 내므로, 판단은
- * 여기 한 곳에 둔다. 한 곳이라도 빠지면 화면끼리 숫자가 어긋난다.
- */
-export function isCounted(food: FoodItem): boolean {
-  return !food.pending;
 }
 
 /** 하루 기록 */
@@ -158,10 +132,7 @@ export function normalizeDayLog(
 export function sumMealKcal(log: DayLog): number {
   let kcal = 0;
   for (const meal of MEAL_TYPES) {
-    for (const f of log.meals[meal] ?? []) {
-      if (!isCounted(f)) continue;
-      kcal += f.kcal ?? 0;
-    }
+    for (const f of log.meals[meal] ?? []) kcal += f.kcal ?? 0;
   }
   return Math.round(kcal);
 }

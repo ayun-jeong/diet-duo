@@ -1,4 +1,3 @@
-import { isCounted } from "./types";
 import type {
   ActivityLevel,
   AppSettings,
@@ -113,8 +112,6 @@ export function sumDayTotals(log: DayLog): DayTotals {
   for (const items of Object.values(log.meals ?? {})) {
     if (!Array.isArray(items)) continue;
     for (const f of items) {
-      // 아직 받아들이지 않은 제안은 남의 숫자다.
-      if (!isCounted(f)) continue;
       totals.kcal += f.kcal;
       totals.carbs += f.carbs;
       totals.protein += f.protein;

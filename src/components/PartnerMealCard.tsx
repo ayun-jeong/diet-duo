@@ -3,7 +3,7 @@
 import { Coffee, Loader2, Moon, Plus, Share2, Sun, Sunrise } from "lucide-react";
 import { toast } from "sonner";
 import { useDiet, usePartnerName } from "@/lib/store";
-import { MEAL_LABELS, isCounted, type FoodItem, type MealType } from "@/lib/types";
+import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
 
 /** MealCard 와 같은 아이콘을 쓴다 — 같은 끼니는 어느 쪽에서 봐도 같아 보여야 한다. */
 const MEAL_ICONS: Record<MealType, React.ReactNode> = {
@@ -55,8 +55,7 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
   };
 
   const items = partner.log?.meals[meal] ?? [];
-  // 상대가 아직 담지 않은 제안은 상대의 숫자가 아니다.
-  const subtotal = items.filter(isCounted).reduce((sum, f) => sum + f.kcal, 0);
+  const subtotal = items.reduce((sum, f) => sum + f.kcal, 0);
 
   if (compact) {
     return (
@@ -70,11 +69,7 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
             {items.map((food) => (
               <li key={food.id}>
                 <div className="flex items-baseline gap-1.5">
-                  <span
-                    className={`min-w-0 flex-1 truncate text-[12px] font-medium ${
-                      food.pending ? "text-gray-400" : ""
-                    }`}
-                  >
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
                     {food.name}
                   </span>
                   <span className="shrink-0 text-[12px] font-semibold text-gray-700">
@@ -122,11 +117,7 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
           items.map((food) => (
             <li
               key={food.id}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 ${
-                food.pending
-                  ? "border border-dashed border-indigo-200 bg-indigo-50/40"
-                  : "bg-gray-50"
-              }`}
+              className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-1.5">
@@ -145,7 +136,7 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
                   {food.sharedFrom && (
                     <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-600">
                       <Share2 className="h-2.5 w-2.5" />
-                      {food.sharedFrom.name} {food.pending ? "· 대기 중" : "보냄"}
+                      {food.sharedFrom.name} 보냄
                     </span>
                   )}
                 </div>
@@ -153,17 +144,14 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
               <span className="shrink-0 text-sm font-semibold text-gray-700">
                 {food.kcal}
               </span>
-              {/* 상대도 아직 받아들이지 않은 제안을 내가 담는 것은 앞뒤가 안 맞는다 */}
-              {!food.pending && (
-                <button
-                  onClick={() => copyToMine(food)}
-                  className="shrink-0 rounded-md p-1 text-gray-300 transition hover:bg-emerald-50 hover:text-emerald-600"
-                  aria-label={`${food.name} 내 기록에 담기`}
-                  title="내 기록에 담기"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              )}
+              <button
+                onClick={() => copyToMine(food)}
+                className="shrink-0 rounded-md p-1 text-gray-300 transition hover:bg-emerald-50 hover:text-emerald-600"
+                aria-label={`${food.name} 내 기록에 담기`}
+                title="내 기록에 담기"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </li>
           ))
         )}

@@ -633,7 +633,7 @@ export const useDiet = create<DietState>((set, get) => {
     shareFood: async (meal, id) => {
       const { log, date, partner } = get();
       const food = log.meals[meal].find((f) => f.id === id);
-      if (!food || food.sharedItemId || food.sharedAccepted) return;
+      if (!food || food.sharedItemId) return;
 
       if (!partner.linked) {
         toast.error("연결된 메이트가 없어요.");
@@ -678,20 +678,10 @@ export const useDiet = create<DietState>((set, get) => {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.error ?? `요청 실패 (${res.status})`);
 
-        if (json?.accepted) {
-          /*
-           * 사본은 상대 기록에 그대로 남아 있다. 여기서 sharedItemId 까지 지우면
-           * 버튼이 "보내기"로 돌아가, 한 번 더 누르는 순간 같은 음식이 중복으로
-           * 다시 간다. 연동은 유지하고 담김으로 확정만 한다.
-           */
-          get().updateFood(meal, id, { sharedAccepted: true });
-          toast.info("메이트가 이미 담은 항목이라 그쪽 기록에는 남아 있어요.");
-        } else {
-          get().updateFood(meal, id, { sharedItemId: undefined });
-          toast.success(
-            json?.alreadyGone ? "메이트가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
-          );
-        }
+        get().updateFood(meal, id, { sharedItemId: undefined });
+        toast.success(
+          json?.alreadyGone ? "메이트가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
+        );
         void get().loadPartner(date);
       } catch (e) {
         toast.error(`되돌리기 실패: ${errText(e)}`);

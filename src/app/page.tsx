@@ -19,7 +19,7 @@ import { useMediaQuery, WIDE_QUERY } from "@/lib/use-media-query";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet, usePartnerName } from "@/lib/store";
-import { MEAL_LABELS, MEAL_TYPES, isCounted } from "@/lib/types";
+import { MEAL_LABELS, MEAL_TYPES } from "@/lib/types";
 
 /**
  * 첫 진입 로그인 안내를 이미 띄웠는지 (기기별).
@@ -396,8 +396,8 @@ function BothNarrow() {
       {MEAL_TYPES.map((meal) => {
         const mine = log.meals[meal] ?? [];
         const theirs = partner.log?.meals[meal] ?? [];
-        const myKcal = mine.filter(isCounted).reduce((sum, f) => sum + f.kcal, 0);
-        const theirKcal = theirs.filter(isCounted).reduce((sum, f) => sum + f.kcal, 0);
+        const myKcal = mine.reduce((sum, f) => sum + f.kcal, 0);
+        const theirKcal = theirs.reduce((sum, f) => sum + f.kcal, 0);
 
         return (
           <div key={meal}>
@@ -421,11 +421,7 @@ function BothNarrow() {
                     {mine.map((f) => (
                       <li key={f.id}>
                         <div className="flex items-baseline gap-1.5">
-                          <span
-                            className={`min-w-0 flex-1 truncate text-[12px] font-medium ${
-                              f.pending ? "text-gray-400" : ""
-                            }`}
-                          >
+                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
                             {f.name}
                           </span>
                           <span className="shrink-0 text-[12px] font-semibold text-gray-700">
