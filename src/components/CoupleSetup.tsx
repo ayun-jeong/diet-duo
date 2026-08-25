@@ -30,6 +30,7 @@ export default function CoupleSetup() {
    */
   const savedNickname = useDiet((s) => s.settings.partnerNickname ?? "");
   const setSettings = useDiet((s) => s.setSettings);
+  const clearPartner = useDiet((s) => s.clearPartner);
   const [nickname, setNickname] = useState(savedNickname);
 
   // 설정은 로그인 후 서버에서 뒤늦게 도착할 수 있다. 입력 중일 때는 건드리지 않는다.
@@ -103,16 +104,44 @@ export default function CoupleSetup() {
     setBusy(false);
   };
 
+  /*
+   * 해제는 couples 행만 지운다 — 식단 기록은 양쪽 모두 그대로 남는다.
+   * 그 사실을 말해 주지 않으면 이별 통보처럼 읽혀서, 한 달씩 상대를 바꿔 가며
+   * 쓰는 흔한 사용법이 괜히 무거워진다.
+   */
   const handleDisconnect = async () => {
     if (!couple) return;
-    if (!confirm("메이트 연결을 해제하시겠어요?")) return;
+    if (!confirm("연결을 끊을까요? 기록은 그대로 남고, 나중에 다시 연결할 수 있어요."))
+      return;
     setBusy(true);
     const { error } = await disconnectCouple();
     if (error) {
       toast.error(error);
     } else {
       setCouple(null);
-      toast.info("메이트 연결이 해제되었습니다.");
+      clearPartner();
+      toast.info("연결을 끊었어요.");
+    }
+    setBusy(false);
+  };
+
+  /**
+   * 대기 중인 초대 코드 취소.
+   *
+   * 코드 생성은 이미 있는 pending 을 그대로 돌려주므로, 한 번 만든 코드는
+   * 되돌릴 방법이 없었다. 코드를 단톡방에 잘못 올렸거나 다른 사람과 하기로
+   * 바뀌었을 때 빠져나갈 곳이 필요하다. 서버 DELETE 가 pending 도 지운다.
+   */
+  const handleCancelInvite = async () => {
+    if (!confirm("이 코드를 취소할까요? 새 코드를 다시 만들 수 있어요.")) return;
+    setBusy(true);
+    const { error } = await disconnectCouple();
+    if (error) {
+      toast.error(error);
+    } else {
+      setCouple(null);
+      clearPartner();
+      toast.info("코드를 취소했어요.");
     }
     setBusy(false);
   };
@@ -223,13 +252,22 @@ export default function CoupleSetup() {
         <p className="mt-2 text-center text-xs text-gray-400">
           상대방이 이 코드를 입력하면 연결됩니다.
         </p>
-        <button
-          onClick={refresh}
-          disabled={busy}
-          className="mt-3 w-full rounded-xl border border-gray-200 py-2 text-xs text-gray-500 hover:bg-gray-50"
-        >
-          연결 확인
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={refresh}
+            disabled={busy}
+            className="flex-1 rounded-xl border border-gray-200 py-2 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+          >
+            연결 확인
+          </button>
+          <button
+            onClick={handleCancelInvite}
+            disabled={busy}
+            className="flex-1 rounded-xl border border-gray-200 py-2 text-xs text-gray-500 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+          >
+            코드 취소
+          </button>
+        </div>
       </div>
     );
   }

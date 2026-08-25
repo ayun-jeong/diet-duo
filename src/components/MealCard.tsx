@@ -509,7 +509,7 @@ export default function MealCard({ meal }: Props) {
                     }`}
                   />
                 </button>
-                {/* 파트너 식단에 연동 (커플 연결 시) */}
+                {/* 메이트 식단에 연동 (연결됐을 때만) */}
                 {user && partner.linked && (
                   <button
                     onClick={() => toggleShare(food)}

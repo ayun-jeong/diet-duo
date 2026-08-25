@@ -34,7 +34,7 @@ create table if not exists app_users (
 
 alter table app_users enable row level security;
 
--- ── 2. couples ──────────────────────────────────────────────
+-- ── 2. couples (두 사람의 연결 — 관계 종류는 앱이 묻지 않는다) ──
 create table if not exists couples (
   id           uuid primary key default gen_random_uuid(),
   user_a       text        not null references app_users(id) on delete cascade,
@@ -53,7 +53,7 @@ create index if not exists couples_user_b_idx on couples (user_b);
 create index if not exists couples_pending_code_idx
   on couples (invite_code) where status = 'pending';
 
--- 한 사람이 여러 커플에 동시에 속하지 못하도록 활성 연결을 1개로 제한
+-- DietDuo 는 한 번에 한 명과만 연결한다. 활성 연결을 1개로 제한.
 create unique index if not exists couples_active_user_a_idx
   on couples (user_a) where status = 'active';
 create unique index if not exists couples_active_user_b_idx

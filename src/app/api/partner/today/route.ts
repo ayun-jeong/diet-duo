@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const partnerId = await getPartnerId(user.id);
 
-  // 커플 미연결 → 204
+  // 메이트 미연결 → 204
   if (!partnerId) return new NextResponse(null, { status: 204 });
 
   const dateParam = req.nextUrl.searchParams.get("date");

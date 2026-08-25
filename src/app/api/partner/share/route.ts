@@ -20,6 +20,19 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * 오늘 근처인지.
+ *
+ * 형식 검사만 하면 연결된 상대가 3년 전이나 내년 아무 날짜에나 항목을 밀어
+ * 넣을 수 있다. ±1 일의 여유는 꼭 필요하다 — 서버는 UTC 로 오늘을 계산하므로
+ * 한국 시간 새벽에는 정상적인 "오늘" 요청이 하루 어긋난 것처럼 보인다.
+ */
+function isNearToday(date: string): boolean {
+  const target = Date.parse(`${date}T00:00:00Z`);
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  return Math.abs(Math.round((target - today) / 86_400_000)) <= 1;
+}
+
 function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -83,6 +96,12 @@ export async function POST(req: NextRequest) {
   }
   if (!isMeal(meal)) {
     return NextResponse.json({ error: "잘못된 meal" }, { status: 400 });
+  }
+  if (!isNearToday(date)) {
+    return NextResponse.json(
+      { error: "오늘 근처 기록에만 보낼 수 있어요" },
+      { status: 400 },
+    );
   }
 
   const food = sanitizeFood(body.food, {

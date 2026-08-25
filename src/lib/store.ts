@@ -33,7 +33,7 @@ import {
 /**
  * 파트너의 하루.
  *
- * linked 가 false 면 커플 연결이 없다는 뜻이고, 화면은 파트너 관련 요소를
+ * linked 가 false 면 메이트 연결이 없다는 뜻이고, 화면은 파트너 관련 요소를
  * 전부 감춘다. loading 은 파트너 조회만 가리키며 내 화면을 막지 않는다.
  */
 export interface PartnerState {
@@ -51,6 +51,36 @@ export interface PartnerState {
   failed: boolean;
   /** log 가 어느 날짜의 것인지 — 날짜를 옮겼을 때 옛 기록을 그리지 않기 위해 */
   date: string | null;
+}
+
+/**
+ * 직전에 연결돼 있었는지 (사용자별).
+ *
+ * 상대가 연결을 끊으면 이쪽은 204 를 받고 조용히 리셋된다. 서로 오프라인으로
+ * 아는 사이면 넘어갈 수 있지만, 그렇지 않으면 어제까지 있던 탭이 말없이 사라진
+ * 것이 고장으로 보인다. 앱을 다시 연 뒤에도 한 번은 알리기 위해 기기에 남긴다.
+ *
+ * 한 브라우저를 두 계정이 쓸 수 있으므로 사용자별로 키를 나눈다.
+ */
+const linkedKey = (userId: string) => `diet:last-duo:${userId}`;
+
+function wasLinked(userId: string | null | undefined): boolean {
+  if (!userId || typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(linkedKey(userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberLinked(userId: string | null | undefined, linked: boolean): void {
+  if (!userId || typeof window === "undefined") return;
+  try {
+    if (linked) window.localStorage.setItem(linkedKey(userId), "1");
+    else window.localStorage.removeItem(linkedKey(userId));
+  } catch {
+    /* 무시 */
+  }
 }
 
 const EMPTY_PARTNER: PartnerState = {
@@ -98,7 +128,7 @@ interface DietState {
   favorites: FavoriteFood[];
   /** 날짜와 무관하게 유지되는 메모 (포스트잇) — 여러 장을 붙일 수 있다 */
   memos: Memo[];
-  /** 커플 파트너의 같은 날짜 기록 */
+  /** 메이트의 같은 날짜 기록 */
   partner: PartnerState;
   date: string;
   log: DayLog;
@@ -130,6 +160,8 @@ interface DietState {
   addFavorite: (food: Omit<FavoriteFood, "id">) => void;
   removeFavorite: (id: string) => void;
   loadPartner: (date?: string) => Promise<void>;
+  /** 내가 직접 연결을 끊었을 때 — 화면과 기억을 함께 비운다 */
+  clearPartner: () => void;
   shareFood: (meal: MealType, id: string) => Promise<void>;
   unshareFood: (meal: MealType, id: string) => Promise<void>;
   addMemo: () => void;
@@ -533,8 +565,13 @@ export const useDiet = create<DietState>((set, get) => {
         });
         if (get().date !== targetDate) return;
 
-        // 204 = 커플 미연결
+        // 204 = 메이트 미연결
         if (res.status === 204) {
+          // 직전까지 연결돼 있었다면 상대가 끊은 것이다. 한 번만 알린다.
+          if (wasLinked(get().userId)) {
+            rememberLinked(get().userId, false);
+            toast.info("연결이 해제되었어요. 새 코드로 다시 연결할 수 있어요.");
+          }
           set({ partner: EMPTY_PARTNER });
           return;
         }
@@ -558,6 +595,7 @@ export const useDiet = create<DietState>((set, get) => {
           },
         });
 
+        rememberLinked(get().userId, true);
         reconcileShared(partnerLog);
       } catch (e) {
         if (get().date !== targetDate) return;
@@ -566,7 +604,16 @@ export const useDiet = create<DietState>((set, get) => {
       }
     },
 
-    /** 내가 먹은 것을 파트너의 같은 끼니에 사본으로 보낸다. */
+    /*
+     * 내가 해제 버튼을 눌렀을 때. 다음 loadPartner 를 기다리지 않고 바로 비운다.
+     * 기억까지 지워야 내가 끊은 것을 상대가 끊었다고 알리지 않는다.
+     */
+    clearPartner: () => {
+      rememberLinked(get().userId, false);
+      set({ partner: EMPTY_PARTNER });
+    },
+
+    /** 내가 먹은 것을 메이트의 같은 끼니에 사본으로 보낸다. */
     shareFood: async (meal, id) => {
       const { log, date, partner } = get();
       const food = log.meals[meal].find((f) => f.id === id);

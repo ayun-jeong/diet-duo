@@ -53,7 +53,7 @@ async function toCoupleInfo(userId: string, couple: any) {
   };
 }
 
-/** GET /api/couple — 현재 커플 상태 */
+/** GET /api/couple — 현재 연결 상태 */
 export async function GET() {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
 

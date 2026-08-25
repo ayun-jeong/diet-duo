@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-/** GET /api/user — app_users 행 보장 + 존재 확인 (커플 연결 전 호출) */
+/** GET /api/user — app_users 행 보장 + 존재 확인 (메이트 연결 전 호출) */
 export async function GET() {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
 

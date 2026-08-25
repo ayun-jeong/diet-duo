@@ -1,8 +1,9 @@
 "use client";
 
-import { Coffee, Loader2, Moon, Share2, Sun, Sunrise } from "lucide-react";
+import { Coffee, Loader2, Moon, Plus, Share2, Sun, Sunrise } from "lucide-react";
+import { toast } from "sonner";
 import { useDiet, usePartnerName } from "@/lib/store";
-import { MEAL_LABELS, type MealType } from "@/lib/types";
+import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
 
 /** MealCard 와 같은 아이콘을 쓴다 — 같은 끼니는 어느 쪽에서 봐도 같아 보여야 한다. */
 const MEAL_ICONS: Record<MealType, React.ReactNode> = {
@@ -27,6 +28,31 @@ interface Props {
 export default function PartnerMealCard({ meal, compact = false }: Props) {
   const partner = useDiet((s) => s.partner);
   const partnerName = usePartnerName();
+  const addFood = useDiet((s) => s.addFood);
+
+  /**
+   * 상대 항목을 내 같은 끼니로 복사한다.
+   *
+   * 지금까지 공유는 내가 상대 기록에 밀어 넣는 한 방향뿐이었다. 같이 밥을 먹는
+   * 사이면 그것으로 충분하지만, 따로 먹는 두 사람에게는 "너 그거 먹었구나,
+   * 나도 먹었어" 쪽이 훨씬 자주 필요하다. 내 기록에만 쓰므로 상대의 동의도
+   * 서버 왕복도 필요 없다.
+   *
+   * sharedFrom·sharedItemId 는 일부러 빼고 새로 만든다 — 그대로 옮기면 내가
+   * 직접 담은 것에 "누가 보냄" 배지가 붙고, 되돌리기가 남의 사본을 가리킨다.
+   */
+  const copyToMine = (food: FoodItem) => {
+    addFood(meal, {
+      name: food.name,
+      amount: food.amount,
+      kcal: food.kcal,
+      carbs: food.carbs,
+      protein: food.protein,
+      fat: food.fat,
+      source: food.source,
+    });
+    toast.success(`${MEAL_LABELS[meal]}에 담았어요`);
+  };
 
   const items = partner.log?.meals[meal] ?? [];
   const subtotal = items.reduce((sum, f) => sum + f.kcal, 0);
@@ -116,6 +142,14 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
               <span className="shrink-0 text-sm font-semibold text-gray-700">
                 {food.kcal}
               </span>
+              <button
+                onClick={() => copyToMine(food)}
+                className="shrink-0 rounded-md p-1 text-gray-300 transition hover:bg-emerald-50 hover:text-emerald-600"
+                aria-label={`${food.name} 내 기록에 담기`}
+                title="내 기록에 담기"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </li>
           ))
         )}

@@ -11,7 +11,7 @@ interface Props {
 
 /**
  * 나 · 파트너 · 함께 전환.
- * 커플이 연결돼 있지 않으면 아예 그리지 않는다 — 고를 것이 없는 버튼은 두지 않는다.
+ * 메이트가 연결돼 있지 않으면 아예 그리지 않는다 — 고를 것이 없는 버튼은 두지 않는다.
  */
 export default function ViewToggle({ view, onChange }: Props) {
   const partner = useDiet((s) => s.partner);

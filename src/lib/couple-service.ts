@@ -13,13 +13,13 @@ export interface CoupleInfo {
 }
 
 /**
- * 커플 기능은 전부 /api/couple 를 거친다.
+ * 메이트 연결은 전부 /api/couple 를 거친다.
  *
  * 이전에는 브라우저에서 Supabase 를 직접 호출했는데, 카카오 로그인은 Supabase 가
  * 모르는 사용자라 auth.uid() 가 항상 null 이었고 RLS 정책이 전부 막고 있었다.
  * 소유권 검사는 이제 서버가 NextAuth 세션으로 수행한다.
  */
-/** 서버에 DB 가 없어 커플 기능 자체를 쓸 수 없는 상태 */
+/** 서버에 DB 가 없어 메이트 연결 자체를 쓸 수 없는 상태 */
 export class CoupleUnavailableError extends Error {
   constructor() {
     super("서버 동기화가 설정되지 않아 메이트 연결 기능을 사용할 수 없습니다.");
@@ -48,7 +48,7 @@ export type CoupleStatus =
   | { kind: "linked"; couple: CoupleInfo }
   | { kind: "unavailable" };
 
-/** 현재 유저의 커플 상태 조회 */
+/** 현재 유저의 연결 상태 조회 */
 export async function getCoupleStatus(): Promise<CoupleStatus> {
   try {
     const { couple } = await call<{ couple: CoupleInfo | null }>();
@@ -74,7 +74,7 @@ export async function createInvite(): Promise<{ couple?: CoupleInfo; error?: str
   }
 }
 
-/** 초대 코드로 커플 연결 */
+/** 초대 코드로 메이트 연결 */
 export async function acceptInvite(
   code: string,
 ): Promise<{ couple?: CoupleInfo; error?: string }> {
@@ -89,7 +89,7 @@ export async function acceptInvite(
   }
 }
 
-/** 커플 연결 해제 */
+/** 메이트 연결 해제 */
 export async function disconnectCouple(): Promise<{ error?: string }> {
   try {
     await call({ method: "DELETE" });
