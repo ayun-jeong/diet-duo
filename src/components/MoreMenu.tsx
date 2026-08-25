@@ -13,9 +13,11 @@ interface Props {
 /**
  * 가끔 쓰는 것들을 한 버튼 뒤로 접는다.
  *
- * 통계·내 정보·로그아웃은 하루에 한 번도 안 누르는 날이 대부분인데
+ * 통계·즐겨찾기·내 정보·로그아웃은 하루에 한 번도 안 누르는 날이 대부분인데
  * 매일 보는 화면 맨 위를 하나씩 차지하고 있었다.
- * 좁은 화면에서는 아래에서 올라오는 시트로, 넓은 화면에서는 버튼 아래 목록으로 편다.
+ *
+ * 누른 버튼 바로 아래에 편다. 화면 아래에서 올라오는 시트로 두면
+ * 손가락이 누른 곳과 결과가 나타나는 곳이 화면 양 끝으로 갈린다.
  */
 export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }: Props) {
   const user = useAuth((s) => s.user);
@@ -53,17 +55,13 @@ export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }
 
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/20 sm:bg-transparent"
-            onClick={() => setOpen(false)}
-          />
+          {/* 바깥을 눌러 닫기 — 드롭다운이므로 화면을 어둡게 덮지 않는다 */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
           <div
             role="menu"
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white p-2 pb-6 shadow-2xl ring-1 ring-black/5 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-10 sm:w-56 sm:rounded-xl sm:pb-2"
+            className="absolute right-0 top-10 z-50 w-56 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10"
           >
-            <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-gray-200 sm:hidden" />
-
             {user && (
               <div className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700">
                 <User className="h-3.5 w-3.5" />
@@ -115,7 +113,7 @@ function MenuItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 sm:py-2"
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
     >
       <span className="text-gray-400">{icon}</span>
       {children}

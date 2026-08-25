@@ -38,6 +38,9 @@ import {
  */
 export interface PartnerState {
   linked: boolean;
+  /** 파트너 사용자 id — 받은 항목이 지금 파트너가 보낸 것인지 가릴 때 쓴다 */
+  id: string | null;
+  /** 카카오 본명 (별명이 없을 때 쓰는 기본값) */
   name: string;
   log: DayLog | null;
   /** 파트너의 목표 (프로필 미설정이면 null) */
@@ -52,6 +55,7 @@ export interface PartnerState {
 
 const EMPTY_PARTNER: PartnerState = {
   linked: false,
+  id: null,
   name: "파트너",
   log: null,
   targets: null,
@@ -543,6 +547,7 @@ export const useDiet = create<DietState>((set, get) => {
         set({
           partner: {
             linked: true,
+            id: json.partnerId ?? null,
             name: json.partnerName ?? "파트너",
             log: partnerLog,
             targets: json.targets ?? null,
@@ -583,7 +588,8 @@ export const useDiet = create<DietState>((set, get) => {
         if (!res.ok) throw new Error(json?.error ?? `요청 실패 (${res.status})`);
 
         get().updateFood(meal, id, { sharedItemId: json.itemId });
-        toast.success(`${partner.name}의 ${MEAL_LABELS[meal]}에 추가했어요.`);
+        const shown = get().settings.partnerNickname?.trim() || partner.name;
+        toast.success(`${shown}의 ${MEAL_LABELS[meal]}에 추가했어요.`);
         void get().loadPartner(date);
       } catch (e) {
         toast.error(`연동 실패: ${errText(e)}`);
@@ -692,3 +698,13 @@ export const useDiet = create<DietState>((set, get) => {
     },
   };
 });
+
+/**
+ * 화면에 보여줄 파트너 이름.
+ *
+ * 내가 붙인 별명이 있으면 그것, 없으면 카카오 본명.
+ * 여러 화면이 같은 이름을 써야 하므로 계산을 이 하나로 모은다.
+ */
+export function usePartnerName(): string {
+  return useDiet((s) => s.settings.partnerNickname?.trim() || s.partner.name);
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Coffee, HeartHandshake, Loader2, Moon, Sun, Sunrise } from "lucide-react";
-import { useDiet } from "@/lib/store";
+import { useDiet, usePartnerName } from "@/lib/store";
 import { MEAL_LABELS, type MealType } from "@/lib/types";
 
 /** MealCard 와 같은 아이콘을 쓴다 — 같은 끼니는 어느 쪽에서 봐도 같아 보여야 한다. */
@@ -26,6 +26,7 @@ interface Props {
  */
 export default function PartnerMealCard({ meal, compact = false }: Props) {
   const partner = useDiet((s) => s.partner);
+  const partnerName = usePartnerName();
 
   const items = partner.log?.meals[meal] ?? [];
   const subtotal = items.reduce((sum, f) => sum + f.kcal, 0);

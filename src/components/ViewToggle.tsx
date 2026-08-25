@@ -1,6 +1,6 @@
 "use client";
 
-import { useDiet } from "@/lib/store";
+import { useDiet, usePartnerName } from "@/lib/store";
 
 export type HomeView = "me" | "partner" | "both";
 
@@ -15,11 +15,12 @@ interface Props {
  */
 export default function ViewToggle({ view, onChange }: Props) {
   const partner = useDiet((s) => s.partner);
+  const partnerName = usePartnerName();
   if (!partner.linked) return null;
 
   const options: { key: HomeView; label: string; on: string }[] = [
     { key: "me", label: "나", on: "bg-white text-emerald-700" },
-    { key: "partner", label: partner.name, on: "bg-white text-pink-700" },
+    { key: "partner", label: partnerName, on: "bg-white text-pink-700" },
     { key: "both", label: "함께", on: "bg-white text-gray-800" },
   ];
 

@@ -68,7 +68,12 @@ export default function WaterTracker({ readOnlyMl, readOnlyGoalMl }: Props = {})
   };
 
   return (
-    <div className="flex h-full w-full flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+    <div
+      // 요약 카드의 물 타일이 이 자리를 찾아온다. 내 기록에만 붙인다 —
+      // '함께' 보기에는 파트너 것까지 두 개가 있어 id 가 겹치면 안 된다.
+      id={readOnly ? undefined : "water-tracker"}
+      className="flex h-full w-full flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5"
+    >
       {/* 헤더 - MealCard와 동일한 스타일 */}
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-1.5 font-bold">

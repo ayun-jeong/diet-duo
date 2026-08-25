@@ -121,11 +121,24 @@ function MacroBar({ label, value, goal, color }: {
   );
 }
 
-function WaterBar({ value, goalLabel, pct }: {
-  value: string; goalLabel: string; pct: number;
+/**
+ * 물 타일. 누르면 아래 물 섭취 카드로 데려간다.
+ *
+ * 요약에서 "1.2L / 2.0L" 을 보고 한 잔 더 채우려면 화면을 한참 내려야 했다.
+ * 남의 요약(파트너 보기)에서는 조작할 수 없으므로 누를 수 없게 둔다.
+ */
+function WaterBar({ value, goalLabel, pct, onJump }: {
+  value: string; goalLabel: string; pct: number; onJump?: () => void;
 }) {
+  const Tag = onJump ? "button" : "div";
   return (
-    <div className="rounded-xl bg-gray-50 px-3 py-2.5">
+    <Tag
+      onClick={onJump}
+      type={onJump ? "button" : undefined}
+      className={`w-full rounded-xl bg-gray-50 px-3 py-2.5 text-left ${
+        onJump ? "transition hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400" : ""
+      }`}
+    >
       <div className="flex items-baseline justify-between mb-0.5">
         <span className="text-[11px] font-medium text-gray-500">물 섭취</span>
         <span className="text-[10px] text-gray-400">{goalLabel}</span>
@@ -134,8 +147,16 @@ function WaterBar({ value, goalLabel, pct }: {
       <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-gray-200">
         <div className="h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
       </div>
-    </div>
+    </Tag>
   );
+}
+
+/** 물 섭취 카드로 부드럽게 이동 (동작 최소화를 켠 사람은 즉시 이동) */
+function jumpToWater() {
+  const el = document.getElementById("water-tracker");
+  if (!el) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────
@@ -306,7 +327,12 @@ export default function DailySummary({
         <MacroBar label="탄수화물" value={totals.carbs}   goal={target.carbs}   color="bg-amber-400"   />
         <MacroBar label="단백질"   value={totals.protein} goal={target.protein} color="bg-rose-400" />
         <MacroBar label="지방"     value={totals.fat}     goal={target.fat}     color="bg-violet-400"  />
-        <WaterBar value={waterLabel} goalLabel={waterGoalLabel} pct={waterPct} />
+        <WaterBar
+          value={waterLabel}
+          goalLabel={waterGoalLabel}
+          pct={waterPct}
+          onJump={isOther ? undefined : jumpToWater}
+        />
       </div>
     </div>
   );

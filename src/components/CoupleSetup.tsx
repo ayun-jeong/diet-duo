@@ -1,9 +1,10 @@
 "use client";
 
 import { Check, Copy, CloudOff, Heart, Link2, Link2Off, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
+import { useDiet } from "@/lib/store";
 import {
   acceptInvite,
   createInvite,
@@ -20,6 +21,30 @@ export default function CoupleSetup() {
   const [codeInput, setCodeInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  /**
+   * 파트너를 부르는 이름.
+   *
+   * 카카오 본명이 화면 곳곳(탭·요약·끼니 카드)에 그대로 뜨는 게 어색해서,
+   * 내가 부를 이름을 따로 적게 한다. 내 설정이라 상대에게는 보이지 않는다.
+   */
+  const savedNickname = useDiet((s) => s.settings.partnerNickname ?? "");
+  const setSettings = useDiet((s) => s.setSettings);
+  const [nickname, setNickname] = useState(savedNickname);
+
+  // 설정은 로그인 후 서버에서 뒤늦게 도착할 수 있다. 입력 중일 때는 건드리지 않는다.
+  const editingNickname = useRef(false);
+  useEffect(() => {
+    if (editingNickname.current) return;
+    setNickname(savedNickname);
+  }, [savedNickname]);
+
+  const applyNickname = () => {
+    editingNickname.current = false;
+    const next = nickname.trim().slice(0, 20);
+    setNickname(next);
+    if (next !== savedNickname) setSettings({ partnerNickname: next });
+  };
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -148,11 +173,28 @@ export default function CoupleSetup() {
             해제
           </button>
         </div>
-        <p className="mt-1.5 text-sm font-semibold text-gray-700">
-          {couple.partnerName ?? "파트너"}
-        </p>
-        <p className="mt-0.5 text-xs text-gray-400">
-          상대방의 오늘 식단을 아래에서 볼 수 있어요.
+        <label className="mt-2 block">
+          <span className="mb-1 block text-xs font-medium text-gray-500">
+            부를 이름
+          </span>
+          <input
+            value={nickname}
+            onChange={(e) => {
+              editingNickname.current = true;
+              setNickname(e.target.value);
+            }}
+            onBlur={applyNickname}
+            onKeyDown={(e) => e.key === "Enter" && applyNickname()}
+            maxLength={20}
+            placeholder={couple.partnerName ?? "파트너"}
+            className="w-full rounded-lg border border-pink-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-300 focus:border-pink-400"
+          />
+        </label>
+        <p className="mt-1 text-xs text-gray-400">
+          비워 두면 <b className="font-semibold text-gray-500">
+            {couple.partnerName ?? "파트너"}
+          </b>{" "}
+          로 표시됩니다. 나에게만 보이는 이름이에요.
         </p>
       </div>
     );

@@ -156,6 +156,13 @@ export interface AppSettings {
   waterCupMl: number; // 물 한 컵 용량
   waterGoalMl: number; // 하루 물 섭취 목표
   macroGoal?: MacroGoal; // 직접 지정한 영양소 목표 (없으면 자동 계산)
+  /**
+   * 내가 파트너를 부르는 이름.
+   *
+   * 카카오 본명 대신 화면에 띄운다. 내 설정이므로 상대에게는 보이지 않고,
+   * 비워 두면 본명으로 돌아간다.
+   */
+  partnerNickname?: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

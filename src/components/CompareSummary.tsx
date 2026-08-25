@@ -2,7 +2,7 @@
 
 import { Dumbbell, HeartHandshake, User } from "lucide-react";
 import { resolveTargets, sumDayTotals, type MacroTargets } from "@/lib/nutrition";
-import { useDiet } from "@/lib/store";
+import { useDiet, usePartnerName } from "@/lib/store";
 import type { DayLog } from "@/lib/types";
 
 interface Side {
@@ -33,6 +33,7 @@ export default function CompareSummary() {
   const profile = useDiet((s) => s.profile);
   const settings = useDiet((s) => s.settings);
   const partner = useDiet((s) => s.partner);
+  const partnerName = usePartnerName();
 
   const partnerLog = partner.log ?? EMPTY_LOG;
 
@@ -47,7 +48,7 @@ export default function CompareSummary() {
       mine: true,
     },
     {
-      label: partner.name,
+      label: partnerName,
       totals: sumDayTotals(partnerLog),
       targets: partner.targets,
       waterMl: partnerLog.waterMl,

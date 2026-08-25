@@ -17,7 +17,7 @@ import MoreMenu from "@/components/MoreMenu";
 import { useMediaQuery, WIDE_QUERY } from "@/lib/use-media-query";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
-import { useDiet } from "@/lib/store";
+import { useDiet, usePartnerName } from "@/lib/store";
 import { MEAL_LABELS, MEAL_TYPES } from "@/lib/types";
 
 /**
@@ -315,7 +315,7 @@ function PartnerDay() {
  * 높이가 어긋나고, 내 점심 옆에 상대의 아침이 오게 된다.
  */
 function BothWide() {
-  const partnerName = useDiet((s) => s.partner.name);
+  const partnerName = usePartnerName();
   const partnerLog = useDiet((s) => s.partner.log);
   const partnerWaterGoal = useDiet((s) => s.partner.waterGoalMl);
 

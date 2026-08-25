@@ -24,7 +24,7 @@ import { useState } from "react";
 import type { RecommendItem } from "@/app/api/food/recommend/route";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
-import { useDiet } from "@/lib/store";
+import { useDiet, usePartnerName } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
 import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
 import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
@@ -84,6 +84,7 @@ export default function MealCard({ meal }: Props) {
   const shareFood = useDiet((s) => s.shareFood);
   const unshareFood = useDiet((s) => s.unshareFood);
   const partner = useDiet((s) => s.partner);
+  const partnerName = usePartnerName();
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -468,7 +469,11 @@ export default function MealCard({ meal }: Props) {
                   {food.sharedFrom && (
                     <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-pink-50 px-1.5 text-[10px] font-medium text-pink-600">
                       <HeartHandshake className="h-2.5 w-2.5" />
-                      {food.sharedFrom.name} 보냄
+                      {/* 지금 파트너가 보낸 것이면 내가 부르는 이름으로 */}
+                      {food.sharedFrom.userId === partner.id
+                        ? partnerName
+                        : food.sharedFrom.name}{" "}
+                      보냄
                     </span>
                   )}
                 </div>
@@ -516,13 +521,13 @@ export default function MealCard({ meal }: Props) {
                     }`}
                     aria-label={
                       food.sharedItemId
-                        ? `${partner.name}의 식단에서 빼기`
-                        : `${partner.name}의 식단에도 넣기`
+                        ? `${partnerName}의 식단에서 빼기`
+                        : `${partnerName}의 식단에도 넣기`
                     }
                     title={
                       food.sharedItemId
-                        ? `${partner.name}에게 보냄 — 눌러서 되돌리기`
-                        : `${partner.name}의 식단에도 넣기`
+                        ? `${partnerName}에게 보냄 — 눌러서 되돌리기`
+                        : `${partnerName}의 식단에도 넣기`
                     }
                   >
                     {sharingId === food.id ? (
