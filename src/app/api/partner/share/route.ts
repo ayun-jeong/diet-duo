@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   const partnerId = await getPartnerId(user.id);
   if (!partnerId) {
-    return NextResponse.json({ error: "연결된 파트너가 없습니다" }, { status: 409 });
+    return NextResponse.json({ error: "연결된 메이트가 없습니다" }, { status: 409 });
   }
 
   let body: { date?: string; meal?: string; food?: unknown };
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   const food = sanitizeFood(body.food, {
     userId: user.id,
-    name: user.name || "파트너",
+    name: user.name || "메이트",
   });
   if (!food) {
     return NextResponse.json({ error: "보낼 음식 정보가 없습니다" }, { status: 400 });
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   const log = rowToDayLog(date, data) ?? emptyDayLog(date);
   if (log.meals[meal].length >= MEAL_ITEM_CAP) {
     return NextResponse.json(
-      { error: "파트너의 해당 끼니가 가득 찼습니다" },
+      { error: "메이트의 해당 끼니가 가득 찼습니다" },
       { status: 409 },
     );
   }
@@ -144,7 +144,7 @@ export async function DELETE(req: NextRequest) {
 
   const partnerId = await getPartnerId(user.id);
   if (!partnerId) {
-    return NextResponse.json({ error: "연결된 파트너가 없습니다" }, { status: 409 });
+    return NextResponse.json({ error: "연결된 메이트가 없습니다" }, { status: 409 });
   }
 
   const params = req.nextUrl.searchParams;

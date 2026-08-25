@@ -5,7 +5,7 @@ import {
   ChevronUp,
   Coffee,
   Loader2,
-  HeartHandshake,
+  Share2,
   Moon,
   Pencil,
   Plus,
@@ -467,8 +467,8 @@ export default function MealCard({ meal }: Props) {
                     지워도 보낸 쪽 기록은 그대로다.
                   */}
                   {food.sharedFrom && (
-                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-pink-50 px-1.5 text-[10px] font-medium text-pink-600">
-                      <HeartHandshake className="h-2.5 w-2.5" />
+                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-600">
+                      <Share2 className="h-2.5 w-2.5" />
                       {/* 지금 파트너가 보낸 것이면 내가 부르는 이름으로 */}
                       {food.sharedFrom.userId === partner.id
                         ? partnerName
@@ -516,8 +516,8 @@ export default function MealCard({ meal }: Props) {
                     disabled={sharingId === food.id}
                     className={`rounded-md p-1 transition disabled:opacity-50 ${
                       food.sharedItemId
-                        ? "text-pink-500 hover:bg-pink-50"
-                        : "text-gray-300 hover:bg-pink-50 hover:text-pink-400"
+                        ? "text-indigo-500 hover:bg-indigo-50"
+                        : "text-gray-300 hover:bg-indigo-50 hover:text-indigo-400"
                     }`}
                     aria-label={
                       food.sharedItemId
@@ -535,7 +535,7 @@ export default function MealCard({ meal }: Props) {
                     ) : food.sharedItemId ? (
                       <Undo2 className="h-3.5 w-3.5" />
                     ) : (
-                      <HeartHandshake className="h-3.5 w-3.5" />
+                      <Share2 className="h-3.5 w-3.5" />
                     )}
                   </button>
                 )}

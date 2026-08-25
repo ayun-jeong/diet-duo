@@ -275,7 +275,7 @@ export default function ProfileForm({ onDone }: Props) {
       파트너의 "기록"은 홈에서 보여준다 (나 / 파트너 / 함께 전환).
       여기 남는 건 한 번 하고 끝나는 "연결" 설정뿐이다.
     */}
-    <SafeSection label="커플 연결">
+    <SafeSection label="메이트 연결">
       <CoupleSetup />
     </SafeSection>
     </div>

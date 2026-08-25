@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, CloudOff, Heart, Link2, Link2Off, Loader2 } from "lucide-react";
+import { Check, Copy, CloudOff, Link2, Link2Off, Loader2, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
@@ -68,13 +68,13 @@ export default function CoupleSetup() {
 
   if (!user) {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-pink-50 to-rose-50 p-4 ring-1 ring-pink-100">
-        <div className="flex items-center gap-2 text-sm font-bold text-pink-600">
-          <Heart className="h-4 w-4 fill-pink-400" />
-          커플 연결
+      <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+          <Users className="h-4 w-4 text-emerald-600" />
+          메이트 연결
         </div>
         <p className="mt-1.5 text-xs text-gray-500">
-          로그인하면 연인과 식단을 공유할 수 있어요.
+          로그인하면 둘이서 식단을 함께 기록할 수 있어요.
         </p>
       </div>
     );
@@ -95,7 +95,7 @@ export default function CoupleSetup() {
     if (linked) {
       setCouple(linked);
       setCodeInput("");
-      toast.success("커플 연결 완료!");
+      toast.success("메이트 연결 완료!");
     } else {
       // 실패 시 입력값을 지우지 않는다 (오타면 다시 고쳐 쓸 수 있게).
       toast.error(error ?? "연결 실패");
@@ -105,14 +105,14 @@ export default function CoupleSetup() {
 
   const handleDisconnect = async () => {
     if (!couple) return;
-    if (!confirm("커플 연결을 해제하시겠어요?")) return;
+    if (!confirm("메이트 연결을 해제하시겠어요?")) return;
     setBusy(true);
     const { error } = await disconnectCouple();
     if (error) {
       toast.error(error);
     } else {
       setCouple(null);
-      toast.info("커플 연결이 해제되었습니다.");
+      toast.info("메이트 연결이 해제되었습니다.");
     }
     setBusy(false);
   };
@@ -145,7 +145,7 @@ export default function CoupleSetup() {
       <div className="rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
         <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
           <CloudOff className="h-4 w-4" />
-          커플 연결 사용 불가
+          메이트 연결 사용 불가
         </div>
         <p className="mt-1.5 text-xs text-gray-400">
           서버 동기화가 설정되지 않았어요. 식단·운동 기록은 이 기기에 저장되며
@@ -158,11 +158,11 @@ export default function CoupleSetup() {
   // ── 연결됨 ─────────────────────────────────────────────────
   if (couple?.status === "active") {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-pink-50 to-rose-50 p-4 ring-1 ring-pink-100">
+      <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold text-pink-600">
-            <Heart className="h-4 w-4 fill-pink-500" />
-            커플 연결됨
+          <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+            <Users className="h-4 w-4 text-emerald-600" />
+            메이트 연결됨
           </div>
           <button
             onClick={handleDisconnect}
@@ -186,13 +186,13 @@ export default function CoupleSetup() {
             onBlur={applyNickname}
             onKeyDown={(e) => e.key === "Enter" && applyNickname()}
             maxLength={20}
-            placeholder={couple.partnerName ?? "파트너"}
-            className="w-full rounded-lg border border-pink-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-300 focus:border-pink-400"
+            placeholder={couple.partnerName ?? "메이트"}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-300 focus:border-emerald-400"
           />
         </label>
         <p className="mt-1 text-xs text-gray-400">
           비워 두면 <b className="font-semibold text-gray-500">
-            {couple.partnerName ?? "파트너"}
+            {couple.partnerName ?? "메이트"}
           </b>{" "}
           로 표시됩니다. 나에게만 보이는 이름이에요.
         </p>
@@ -221,7 +221,7 @@ export default function CoupleSetup() {
           </button>
         </div>
         <p className="mt-2 text-center text-xs text-gray-400">
-          파트너가 이 코드를 입력하면 연결됩니다.
+          상대방이 이 코드를 입력하면 연결됩니다.
         </p>
         <button
           onClick={refresh}
@@ -234,18 +234,18 @@ export default function CoupleSetup() {
     );
   }
 
-  // ── 커플 없음 ─────────────────────────────────────────────
+  // ── 메이트 없음 ─────────────────────────────────────────────
   return (
     <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
       <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-        <Heart className="h-4 w-4 text-pink-400" />
-        커플 연결
+        <Users className="h-4 w-4 text-emerald-500" />
+        메이트 연결
       </div>
 
       <button
         onClick={handleCreateInvite}
         disabled={busy}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-pink-500 py-2.5 text-sm font-bold text-white hover:bg-pink-600 disabled:opacity-50"
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
         초대 코드 생성
@@ -264,7 +264,7 @@ export default function CoupleSetup() {
           onKeyDown={(e) => { if (e.key === "Enter") handleAccept(); }}
           placeholder="코드 입력 (예: AB3X7Z)"
           maxLength={6}
-          className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-pink-400"
+          className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-emerald-400"
         />
         <button
           onClick={handleAccept}

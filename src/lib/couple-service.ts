@@ -22,7 +22,7 @@ export interface CoupleInfo {
 /** 서버에 DB 가 없어 커플 기능 자체를 쓸 수 없는 상태 */
 export class CoupleUnavailableError extends Error {
   constructor() {
-    super("서버 동기화가 설정되지 않아 커플 기능을 사용할 수 없습니다.");
+    super("서버 동기화가 설정되지 않아 메이트 연결 기능을 사용할 수 없습니다.");
     this.name = "CoupleUnavailableError";
   }
 }

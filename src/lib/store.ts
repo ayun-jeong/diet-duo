@@ -56,7 +56,7 @@ export interface PartnerState {
 const EMPTY_PARTNER: PartnerState = {
   linked: false,
   id: null,
-  name: "파트너",
+  name: "메이트",
   log: null,
   targets: null,
   waterGoalMl: null,
@@ -548,7 +548,7 @@ export const useDiet = create<DietState>((set, get) => {
           partner: {
             linked: true,
             id: json.partnerId ?? null,
-            name: json.partnerName ?? "파트너",
+            name: json.partnerName ?? "메이트",
             log: partnerLog,
             targets: json.targets ?? null,
             waterGoalMl: json.waterGoalMl ?? null,
@@ -573,7 +573,7 @@ export const useDiet = create<DietState>((set, get) => {
       if (!food || food.sharedItemId) return;
 
       if (!partner.linked) {
-        toast.error("연결된 파트너가 없어요.");
+        toast.error("연결된 메이트가 없어요.");
         return;
       }
 
@@ -617,7 +617,7 @@ export const useDiet = create<DietState>((set, get) => {
 
         get().updateFood(meal, id, { sharedItemId: undefined });
         toast.success(
-          json?.alreadyGone ? "파트너가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
+          json?.alreadyGone ? "메이트가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
         );
         void get().loadPartner(date);
       } catch (e) {

@@ -20,7 +20,7 @@ export default function ViewToggle({ view, onChange }: Props) {
 
   const options: { key: HomeView; label: string; on: string }[] = [
     { key: "me", label: "나", on: "bg-white text-emerald-700" },
-    { key: "partner", label: partnerName, on: "bg-white text-pink-700" },
+    { key: "partner", label: partnerName, on: "bg-white text-indigo-700" },
     { key: "both", label: "함께", on: "bg-white text-gray-800" },
   ];
 

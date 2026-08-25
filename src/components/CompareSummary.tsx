@@ -1,6 +1,6 @@
 "use client";
 
-import { Dumbbell, HeartHandshake, User } from "lucide-react";
+import { Dumbbell, User, UserRound } from "lucide-react";
 import { resolveTargets, sumDayTotals, type MacroTargets } from "@/lib/nutrition";
 import { useDiet, usePartnerName } from "@/lib/store";
 import type { DayLog } from "@/lib/types";
@@ -78,7 +78,7 @@ function SideBlock({ side }: { side: Side }) {
   // 80~105% 면 "딱 좋음" — 내 요약 화면과 같은 기준을 쓴다.
   const achieved = rawPct >= 80 && rawPct <= 105;
 
-  const ink = mine ? "text-emerald-700" : "text-pink-700";
+  const ink = mine ? "text-emerald-700" : "text-indigo-700";
   /*
    * 바 색은 언제나 그 사람의 색으로 둔다.
    *
@@ -92,8 +92,8 @@ function SideBlock({ side }: { side: Side }) {
       ? "bg-emerald-500 shadow-[0_0_6px_#34d399]"
       : "bg-emerald-400"
     : achieved
-      ? "bg-pink-500 shadow-[0_0_6px_#f9a8d4]"
-      : "bg-pink-400";
+      ? "bg-indigo-500 shadow-[0_0_6px_#a5b4fc]"
+      : "bg-indigo-400";
 
   return (
     <div>
@@ -102,7 +102,7 @@ function SideBlock({ side }: { side: Side }) {
           {mine ? (
             <User className="h-3.5 w-3.5" />
           ) : (
-            <HeartHandshake className="h-3.5 w-3.5" />
+            <UserRound className="h-3.5 w-3.5" />
           )}
           <span className="max-w-28 truncate">{side.label}</span>
         </div>

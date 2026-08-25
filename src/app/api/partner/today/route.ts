@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     // 파트너 체중은 공유하지 않는다.
     weightKg: undefined,
     partnerId,
-    partnerName: userRes.data?.display_name || "파트너",
+    partnerName: userRes.data?.display_name || "메이트",
     targets,
     // 물 목표는 사람마다 다르므로 함께 내려준다 (내 목표로 상대 진행률을 그리면 틀린다).
     waterGoalMl: settings?.waterGoalMl ?? null,

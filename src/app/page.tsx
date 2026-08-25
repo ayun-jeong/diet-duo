@@ -1,11 +1,12 @@
 "use client";
 
-import { HeartHandshake, LogIn, StickyNote, User, Utensils } from "lucide-react";
+import { LogIn, StickyNote, User, UserRound, Utensils } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AuthModal from "@/components/AuthModal";
 import DailySummary from "@/components/DailySummary";
 import DateNav from "@/components/DateNav";
 import ExerciseCard from "@/components/ExerciseCard";
+import InviteBanner from "@/components/InviteBanner";
 import MealCard from "@/components/MealCard";
 import ProfileForm from "@/components/ProfileForm";
 import SidePanel, { type SidePanelTab } from "@/components/SidePanel";
@@ -215,13 +216,23 @@ export default function Home() {
                 setSidePanelOpen(true);
               }}
               onOpenProfile={() => setEditing(true)}
+              onOpenDuo={() => setEditing(true)}
             />
           </div>
         </header>
 
-        {/* 보기 전환 — 셋이 가로를 똑같이 나눠 갖는다 (이름이 길어도 안 찌그러짐) */}
+        {/*
+          보기 전환 — 셋이 가로를 똑같이 나눠 갖는다 (이름이 길어도 안 찌그러짐).
+          연결이 없으면 고를 것도 없으므로 같은 자리를 초대 배너에 내준다.
+        */}
         <div className="mb-3">
-          <ViewToggle view={view} onChange={changeView} />
+          {partner.linked ? (
+            <ViewToggle view={view} onChange={changeView} />
+          ) : (
+            <InviteBanner
+              onClick={() => (user ? setEditing(true) : setAuthModalOpen(true))}
+            />
+          )}
         </div>
 
         {/* ── 주요 영역 ── */}
@@ -328,8 +339,8 @@ function BothWide() {
         <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
           <User className="h-3.5 w-3.5" /> 나
         </span>
-        <span className="flex items-center gap-1.5 truncate text-xs font-bold text-pink-700">
-          <HeartHandshake className="h-3.5 w-3.5" /> {partnerName}
+        <span className="flex items-center gap-1.5 truncate text-xs font-bold text-indigo-700">
+          <UserRound className="h-3.5 w-3.5" /> {partnerName}
         </span>
       </div>
 
@@ -385,7 +396,7 @@ function BothNarrow() {
               <span className="ml-auto text-[11px] tabular-nums text-gray-400">
                 <b className="text-emerald-600">{myKcal}</b>
                 {" · "}
-                <b className="text-pink-600">{theirKcal}</b>
+                <b className="text-indigo-600">{theirKcal}</b>
               </span>
             </div>
 

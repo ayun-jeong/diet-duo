@@ -1,6 +1,6 @@
 "use client";
 
-import { Coffee, HeartHandshake, Loader2, Moon, Sun, Sunrise } from "lucide-react";
+import { Coffee, Loader2, Moon, Share2, Sun, Sunrise } from "lucide-react";
 import { useDiet, usePartnerName } from "@/lib/store";
 import { MEAL_LABELS, type MealType } from "@/lib/types";
 
@@ -106,8 +106,8 @@ export default function PartnerMealCard({ meal, compact = false }: Props) {
                   </span>
                   {/* 내가 보낸 것 — 상대 화면에서 어떻게 보이는지 여기서도 확인된다 */}
                   {food.sharedFrom && (
-                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-pink-50 px-1.5 text-[10px] font-medium text-pink-600">
-                      <HeartHandshake className="h-2.5 w-2.5" />
+                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-600">
+                      <Share2 className="h-2.5 w-2.5" />
                       {food.sharedFrom.name} 보냄
                     </span>
                   )}

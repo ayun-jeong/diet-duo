@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   if (body.action === "create") {
     const existing = await loadCouple(user.id);
     if (existing?.status === "active") {
-      return NextResponse.json({ error: "이미 연결된 커플이 있습니다." }, { status: 409 });
+      return NextResponse.json({ error: "이미 연결된 메이트가 있습니다." }, { status: 409 });
     }
     // 대기 중인 내 초대가 있으면 코드를 재사용한다.
     if (existing?.status === "pending" && existing.user_a === user.id) {
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
     const mine = await loadCouple(user.id);
     if (mine?.status === "active") {
-      return NextResponse.json({ error: "이미 연결된 커플이 있습니다." }, { status: 409 });
+      return NextResponse.json({ error: "이미 연결된 메이트가 있습니다." }, { status: 409 });
     }
 
     // user_b is null 조건을 UPDATE 문 안에 두어, 두 사람이 동시에 같은 코드를

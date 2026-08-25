@@ -1,6 +1,15 @@
 "use client";
 
-import { BarChart2, LogIn, LogOut, MoreHorizontal, Settings2, Star, User } from "lucide-react";
+import {
+  BarChart2,
+  LogIn,
+  LogOut,
+  MoreHorizontal,
+  Settings2,
+  Star,
+  User,
+  UserPlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-store";
 
@@ -8,6 +17,8 @@ interface Props {
   onOpenStats: () => void;
   onOpenFavorites: () => void;
   onOpenProfile: () => void;
+  /** 메이트 연결 — 실제 설정은 내 정보 화면 안에 있다 */
+  onOpenDuo: () => void;
 }
 
 /**
@@ -19,7 +30,12 @@ interface Props {
  * 누른 버튼 바로 아래에 편다. 화면 아래에서 올라오는 시트로 두면
  * 손가락이 누른 곳과 결과가 나타나는 곳이 화면 양 끝으로 갈린다.
  */
-export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }: Props) {
+export default function MoreMenu({
+  onOpenStats,
+  onOpenFavorites,
+  onOpenProfile,
+  onOpenDuo,
+}: Props) {
   const user = useAuth((s) => s.user);
   const signOut = useAuth((s) => s.signOut);
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
@@ -74,6 +90,9 @@ export default function MoreMenu({ onOpenStats, onOpenFavorites, onOpenProfile }
             </MenuItem>
             <MenuItem icon={<Star className="h-4 w-4" />} onClick={run(onOpenFavorites)}>
               즐겨찾기
+            </MenuItem>
+            <MenuItem icon={<UserPlus className="h-4 w-4" />} onClick={run(onOpenDuo)}>
+              함께하기
             </MenuItem>
             <MenuItem icon={<Settings2 className="h-4 w-4" />} onClick={run(onOpenProfile)}>
               내 정보
