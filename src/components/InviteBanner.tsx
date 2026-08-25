@@ -18,8 +18,11 @@ export default function InviteBanner({ onClick }: { onClick: () => void }) {
     >
       <UserPlus className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">함께할 사람 초대하기</span>
-      {/* 누구와 쓰는 앱인지 여기서 한 번 못 박는다 */}
-      <span className="hidden shrink-0 text-[11px] font-medium text-emerald-600/80 sm:inline">
+      {/*
+        누구와 쓰는 앱인지 여기서 한 번 못 박는다.
+        이 앱은 세로 화면이 기본이라 좁은 폭에서 숨기면 정작 볼 사람이 못 본다.
+      */}
+      <span className="shrink-0 text-[11px] font-medium text-emerald-600/80">
         친구 · 가족 누구나
       </span>
     </button>
