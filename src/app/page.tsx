@@ -19,7 +19,7 @@ import { useMediaQuery, WIDE_QUERY } from "@/lib/use-media-query";
 import WaterTracker from "@/components/WaterTracker";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet, usePartnerName } from "@/lib/store";
-import { MEAL_LABELS, MEAL_TYPES } from "@/lib/types";
+import { MEAL_LABELS, MEAL_TYPES, isCounted } from "@/lib/types";
 
 /**
  * 첫 진입 로그인 안내를 이미 띄웠는지 (기기별).
@@ -74,6 +74,8 @@ export default function Home() {
 
   const addMemo = useDiet((s) => s.addMemo);
   const partner = useDiet((s) => s.partner);
+  const partnerName = usePartnerName();
+  const date = useDiet((s) => s.date);
   const isWide = useMediaQuery(WIDE_QUERY);
 
   const [view, setView] = useState<HomeView>("me");
@@ -225,6 +227,16 @@ export default function Home() {
           보기 전환 — 셋이 가로를 똑같이 나눠 갖는다 (이름이 길어도 안 찌그러짐).
           연결이 없으면 고를 것도 없으므로 같은 자리를 초대 배너에 내준다.
         */}
+        {/*
+          상대가 공개 범위를 좁혀 둔 날. 이 안내가 없으면 "아무것도 안 먹었다"로
+          읽혀서, 걱정하거나 캐묻게 만든다.
+        */}
+        {view !== "me" && partner.outOfScope && partner.date === date && (
+          <p className="mb-2 rounded-xl bg-gray-100 px-3 py-2 text-center text-xs text-gray-500">
+            {partnerName}님이 이 날짜는 공개하지 않았어요
+          </p>
+        )}
+
         <div className="mb-3">
           {partner.linked ? (
             <ViewToggle view={view} onChange={changeView} />
@@ -384,8 +396,8 @@ function BothNarrow() {
       {MEAL_TYPES.map((meal) => {
         const mine = log.meals[meal] ?? [];
         const theirs = partner.log?.meals[meal] ?? [];
-        const myKcal = mine.reduce((sum, f) => sum + f.kcal, 0);
-        const theirKcal = theirs.reduce((sum, f) => sum + f.kcal, 0);
+        const myKcal = mine.filter(isCounted).reduce((sum, f) => sum + f.kcal, 0);
+        const theirKcal = theirs.filter(isCounted).reduce((sum, f) => sum + f.kcal, 0);
 
         return (
           <div key={meal}>
@@ -409,7 +421,11 @@ function BothNarrow() {
                     {mine.map((f) => (
                       <li key={f.id}>
                         <div className="flex items-baseline gap-1.5">
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                          <span
+                            className={`min-w-0 flex-1 truncate text-[12px] font-medium ${
+                              f.pending ? "text-gray-400" : ""
+                            }`}
+                          >
                             {f.name}
                           </span>
                           <span className="shrink-0 text-[12px] font-semibold text-gray-700">

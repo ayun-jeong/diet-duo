@@ -5,19 +5,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet } from "@/lib/store";
+import { SHARE_SCOPE_LABELS, type ShareScope } from "@/lib/types";
 import {
   acceptInvite,
   createInvite,
-  disconnectCouple,
-  getCoupleStatus,
-  type CoupleInfo,
-} from "@/lib/couple-service";
+  unlink,
+  getDuoStatus,
+  type DuoInfo,
+} from "@/lib/duo-service";
 
-export default function CoupleSetup() {
+export default function PartnerLink() {
   const user = useAuth((s) => s.user);
-  const [couple, setCouple] = useState<CoupleInfo | null>(null);
+  const [duo, setDuo] = useState<DuoInfo | null>(null);
   const [unavailable, setUnavailable] = useState(false);
-  const [loadingCouple, setLoadingCouple] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadingDuo, setLoadingDuo] = useState(false);
   const [codeInput, setCodeInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -29,6 +31,7 @@ export default function CoupleSetup() {
    * 내가 부를 이름을 따로 적게 한다. 내 설정이라 상대에게는 보이지 않는다.
    */
   const savedNickname = useDiet((s) => s.settings.partnerNickname ?? "");
+  const shareScope = useDiet((s) => s.settings.shareScope ?? "all");
   const setSettings = useDiet((s) => s.setSettings);
   const clearPartner = useDiet((s) => s.clearPartner);
   const [nickname, setNickname] = useState(savedNickname);
@@ -49,16 +52,17 @@ export default function CoupleSetup() {
 
   const refresh = useCallback(async () => {
     if (!user) {
-      setCouple(null);
+      setDuo(null);
       return;
     }
-    setLoadingCouple(true);
+    setLoadingDuo(true);
     try {
-      const status = await getCoupleStatus();
+      const status = await getDuoStatus();
       setUnavailable(status.kind === "unavailable");
-      setCouple(status.kind === "linked" ? status.couple : null);
+      setLoadFailed(status.kind === "error");
+      if (status.kind !== "error") setDuo(status.kind === "linked" ? status.duo : null);
     } finally {
-      setLoadingCouple(false);
+      setLoadingDuo(false);
     }
   }, [user]);
 
@@ -83,8 +87,8 @@ export default function CoupleSetup() {
 
   const handleCreateInvite = async () => {
     setBusy(true);
-    const { couple: created, error } = await createInvite();
-    if (created) setCouple(created);
+    const { duo: created, error } = await createInvite();
+    if (created) setDuo(created);
     else toast.error(error ?? "초대 코드 생성 실패");
     setBusy(false);
   };
@@ -92,9 +96,9 @@ export default function CoupleSetup() {
   const handleAccept = async () => {
     if (!codeInput.trim()) { toast.error("코드를 입력하세요."); return; }
     setBusy(true);
-    const { couple: linked, error } = await acceptInvite(codeInput.trim());
+    const { duo: linked, error } = await acceptInvite(codeInput.trim());
     if (linked) {
-      setCouple(linked);
+      setDuo(linked);
       setCodeInput("");
       toast.success("메이트 연결 완료!");
     } else {
@@ -110,15 +114,15 @@ export default function CoupleSetup() {
    * 쓰는 흔한 사용법이 괜히 무거워진다.
    */
   const handleDisconnect = async () => {
-    if (!couple) return;
+    if (!duo) return;
     if (!confirm("연결을 끊을까요? 기록은 그대로 남고, 나중에 다시 연결할 수 있어요."))
       return;
     setBusy(true);
-    const { error } = await disconnectCouple();
+    const { error } = await unlink();
     if (error) {
       toast.error(error);
     } else {
-      setCouple(null);
+      setDuo(null);
       clearPartner();
       toast.info("연결을 끊었어요.");
     }
@@ -135,11 +139,11 @@ export default function CoupleSetup() {
   const handleCancelInvite = async () => {
     if (!confirm("이 코드를 취소할까요? 새 코드를 다시 만들 수 있어요.")) return;
     setBusy(true);
-    const { error } = await disconnectCouple();
+    const { error } = await unlink();
     if (error) {
       toast.error(error);
     } else {
-      setCouple(null);
+      setDuo(null);
       clearPartner();
       toast.info("코드를 취소했어요.");
     }
@@ -147,10 +151,10 @@ export default function CoupleSetup() {
   };
 
   const copyCode = () => {
-    if (!couple?.inviteCode) return;
+    if (!duo?.inviteCode) return;
     // Capacitor WebView 등에서는 clipboard 접근이 거부될 수 있다.
     navigator.clipboard
-      ?.writeText(couple.inviteCode)
+      ?.writeText(duo.inviteCode)
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -158,7 +162,7 @@ export default function CoupleSetup() {
       .catch(() => toast.error("복사에 실패했습니다. 코드를 직접 입력해 주세요."));
   };
 
-  if (loadingCouple) {
+  if (loadingDuo) {
     return (
       <div className="flex items-center justify-center rounded-2xl bg-white p-6 ring-1 ring-black/5">
         <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
@@ -184,8 +188,29 @@ export default function CoupleSetup() {
     );
   }
 
+  // ── 조회 실패 ──────────────────────────────────────────────
+  // 연결 여부를 모르는 상태다. 초대 화면을 그리면 이미 연결된 사람에게
+  // 없는 문제를 만들어 주게 되므로, 다시 시도만 제안한다.
+  if (loadFailed && !duo) {
+    return (
+      <div className="rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
+          <CloudOff className="h-4 w-4" />
+          연결 상태를 확인하지 못했어요
+        </div>
+        <button
+          onClick={refresh}
+          disabled={busy}
+          className="mt-3 w-full rounded-xl border border-gray-200 bg-white py-2 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
   // ── 연결됨 ─────────────────────────────────────────────────
-  if (couple?.status === "active") {
+  if (duo?.status === "active") {
     return (
       <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
         <div className="flex items-center justify-between">
@@ -215,22 +240,54 @@ export default function CoupleSetup() {
             onBlur={applyNickname}
             onKeyDown={(e) => e.key === "Enter" && applyNickname()}
             maxLength={20}
-            placeholder={couple.partnerName ?? "메이트"}
+            placeholder={duo.partnerName ?? "메이트"}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-300 focus:border-emerald-400"
           />
         </label>
         <p className="mt-1 text-xs text-gray-400">
           비워 두면 <b className="font-semibold text-gray-500">
-            {couple.partnerName ?? "메이트"}
+            {duo.partnerName ?? "메이트"}
           </b>{" "}
           로 표시됩니다. 나에게만 보이는 이름이에요.
         </p>
+
+        {/*
+          공개 범위.
+          연결했다고 지난달 식단까지 하루씩 넘겨 보게 할 이유는 없다.
+          기본값은 전체 — 이미 쓰던 사람의 화면을 말없이 좁히지 않기 위해서다.
+        */}
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <span className="mb-1.5 block text-xs font-medium text-gray-500">
+            보여줄 기간
+          </span>
+          <div className="flex gap-1.5">
+            {(Object.keys(SHARE_SCOPE_LABELS) as ShareScope[]).map((scope) => (
+              <button
+                key={scope}
+                onClick={() => setSettings({ shareScope: scope })}
+                aria-pressed={shareScope === scope}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
+                  shareScope === scope
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {SHARE_SCOPE_LABELS[scope]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
+            {shareScope === "all"
+              ? "내 모든 날짜를 볼 수 있어요."
+              : `${SHARE_SCOPE_LABELS[shareScope]} 기록만 보여줍니다. 바꿔도 지난 기록은 지워지지 않아요.`}
+          </p>
+        </div>
       </div>
     );
   }
 
   // ── 대기 중 (내가 초대 생성) ──────────────────────────────
-  if (couple?.status === "pending" && couple.isInitiator) {
+  if (duo?.status === "pending" && duo.isInitiator) {
     return (
       <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
         <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
@@ -239,7 +296,7 @@ export default function CoupleSetup() {
         </div>
         <div className="mt-3 flex items-center gap-2">
           <div className="flex-1 rounded-xl bg-emerald-50 px-4 py-3 text-center font-mono text-2xl font-extrabold tracking-[0.25em] text-emerald-700">
-            {couple.inviteCode}
+            {duo.inviteCode}
           </div>
           <button
             onClick={copyCode}

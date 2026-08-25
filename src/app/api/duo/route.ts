@@ -13,7 +13,7 @@ function makeCode(): string {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function loadCouple(userId: string): Promise<any | null> {
+async function loadDuo(userId: string): Promise<any | null> {
   const { data } = await db!
     .from("couples")
     .select("id, status, invite_code, user_a, user_b")
@@ -25,11 +25,11 @@ async function loadCouple(userId: string): Promise<any | null> {
   return data ?? null;
 }
 
-async function toCoupleInfo(userId: string, couple: any) {
-  const isInitiator = couple.user_a === userId;
+async function toDuoInfo(userId: string, duo: any) {
+  const isInitiator = duo.user_a === userId;
   const partnerId: string | undefined = isInitiator
-    ? couple.user_b ?? undefined
-    : couple.user_a;
+    ? duo.user_b ?? undefined
+    : duo.user_a;
 
   let partnerName: string | undefined;
   if (partnerId) {
@@ -44,27 +44,27 @@ async function toCoupleInfo(userId: string, couple: any) {
   }
 
   return {
-    id: couple.id as string,
-    status: couple.status as "pending" | "active",
-    inviteCode: couple.invite_code as string,
+    id: duo.id as string,
+    status: duo.status as "pending" | "active",
+    inviteCode: duo.invite_code as string,
     partnerId,
     partnerName,
     isInitiator,
   };
 }
 
-/** GET /api/couple — 현재 연결 상태 */
+/** GET /api/duo — 현재 연결 상태 */
 export async function GET() {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
 
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const couple = await loadCouple(user.id);
-  return NextResponse.json({ couple: couple ? await toCoupleInfo(user.id, couple) : null });
+  const duo = await loadDuo(user.id);
+  return NextResponse.json({ duo: duo ? await toDuoInfo(user.id, duo) : null });
 }
 
-/** POST /api/couple — { action: "create" } 초대 생성 / { action: "accept", code } 수락 */
+/** POST /api/duo — { action: "create" } 초대 생성 / { action: "accept", code } 수락 */
 export async function POST(req: NextRequest) {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
 
@@ -82,13 +82,13 @@ export async function POST(req: NextRequest) {
   await ensureAppUser(user);
 
   if (body.action === "create") {
-    const existing = await loadCouple(user.id);
+    const existing = await loadDuo(user.id);
     if (existing?.status === "active") {
       return NextResponse.json({ error: "이미 연결된 메이트가 있습니다." }, { status: 409 });
     }
     // 대기 중인 내 초대가 있으면 코드를 재사용한다.
     if (existing?.status === "pending" && existing.user_a === user.id) {
-      return NextResponse.json({ couple: await toCoupleInfo(user.id, existing) });
+      return NextResponse.json({ duo: await toDuoInfo(user.id, existing) });
     }
 
     const { data, error } = await db
@@ -98,10 +98,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error("[couple] create:", error);
+      console.error("[duo] create:", error);
       return NextResponse.json({ error: "초대 코드 생성에 실패했습니다." }, { status: 500 });
     }
-    return NextResponse.json({ couple: await toCoupleInfo(user.id, data) });
+    return NextResponse.json({ duo: await toDuoInfo(user.id, data) });
   }
 
   if (body.action === "accept") {
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "유효하지 않은 코드입니다." }, { status: 400 });
     }
 
-    const mine = await loadCouple(user.id);
+    const mine = await loadDuo(user.id);
     if (mine?.status === "active") {
       return NextResponse.json({ error: "이미 연결된 메이트가 있습니다." }, { status: 409 });
     }
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error("[couple] accept:", error);
+      console.error("[duo] accept:", error);
       return NextResponse.json({ error: "연결 중 오류가 발생했습니다." }, { status: 500 });
     }
     if (!data) {
@@ -143,16 +143,16 @@ export async function POST(req: NextRequest) {
       await db.from("couples").delete().eq("id", mine.id);
     }
 
-    return NextResponse.json({ couple: await toCoupleInfo(user.id, data) });
+    return NextResponse.json({ duo: await toDuoInfo(user.id, data) });
   }
 
   return NextResponse.json({ error: "알 수 없는 action" }, { status: 400 });
 }
 
 /**
- * DELETE /api/couple — 연결 해제.
+ * DELETE /api/duo — 연결 해제.
  *
- * 구 클라이언트는 coupleId 만 받아 그대로 삭제했고 소유권 검사는 (깨져 있던) RLS 에
+ * 구 클라이언트는 duoId 만 받아 그대로 삭제했고 소유권 검사는 (깨져 있던) RLS 에
  * 의존했다. 여기서는 세션 사용자가 당사자인 건만 지운다.
  */
 export async function DELETE() {
@@ -167,7 +167,7 @@ export async function DELETE() {
     .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
 
   if (error) {
-    console.error("[couple] delete:", error);
+    console.error("[duo] delete:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

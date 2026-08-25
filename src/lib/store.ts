@@ -51,6 +51,8 @@ export interface PartnerState {
   failed: boolean;
   /** log 가 어느 날짜의 것인지 — 날짜를 옮겼을 때 옛 기록을 그리지 않기 위해 */
   date: string | null;
+  /** 상대가 이 날짜를 공개 범위 밖으로 두었는지 (기록 없음과 구분해야 한다) */
+  outOfScope: boolean;
 }
 
 /**
@@ -93,6 +95,7 @@ const EMPTY_PARTNER: PartnerState = {
   loading: false,
   failed: false,
   date: null,
+  outOfScope: false,
 };
 
 /** 로컬 기준 오늘 날짜 (YYYY-MM-DD) */
@@ -222,6 +225,10 @@ export const useDiet = create<DietState>((set, get) => {
    * 그대로 두면 되돌리기 버튼이 아무 일도 하지 않는 것처럼 보이므로,
    * 파트너 기록을 새로 받을 때마다 사라진 사본의 표시를 걷어낸다.
    * 내 항목 자체는 건드리지 않는다 — 상대가 지웠다고 내 기록이 지워지면 안 된다.
+   *
+   * 불변식: **상대 기록을 실제로 다 봤을 때만 부를 것.**
+   * 빈 응답이 "지웠다"가 아니라 "안 보여준다"일 수 있으면(공개 범위 밖, 조회 실패)
+   * 여기서 멀쩡한 사본의 표시를 걷어내고 그대로 서버에 저장해 버린다.
    */
   function reconcileShared(partnerLog: DayLog) {
     const { log } = get();
@@ -484,7 +491,12 @@ export const useDiet = create<DietState>((set, get) => {
     setDate: async (date) => {
       if (date === get().date) return;
       // 날짜만 먼저 바꿔 이동이 즉시 반영되게 한다.
-      set({ date, log: emptyDayLog(date), partner: { ...get().partner, log: null } });
+      set({
+        date,
+        log: emptyDayLog(date),
+        // 판정값은 log 와 수명을 같이 한다 — 옛 날짜의 "비공개"가 새 날짜에 남으면 안 된다.
+        partner: { ...get().partner, log: null, outOfScope: false, failed: false },
+      });
       void get().loadPartner(date);
       try {
         const log = await storage.getDayLog(date);
@@ -592,15 +604,19 @@ export const useDiet = create<DietState>((set, get) => {
             loading: false,
             failed: false,
             date: targetDate,
+            outOfScope: json.outOfScope === true,
           },
         });
 
         rememberLinked(get().userId, true);
-        reconcileShared(partnerLog);
+        // 범위 밖 응답은 빈 기록으로 오므로 사본이 살았는지 알 수 없다.
+        if (json.outOfScope !== true) reconcileShared(partnerLog);
       } catch (e) {
         if (get().date !== targetDate) return;
         console.error("[store] loadPartner 실패:", e);
-        set((s) => ({ partner: { ...s.partner, loading: false, failed: true } }));
+        set((s) => ({
+          partner: { ...s.partner, loading: false, failed: true, outOfScope: false },
+        }));
       }
     },
 
@@ -617,7 +633,7 @@ export const useDiet = create<DietState>((set, get) => {
     shareFood: async (meal, id) => {
       const { log, date, partner } = get();
       const food = log.meals[meal].find((f) => f.id === id);
-      if (!food || food.sharedItemId) return;
+      if (!food || food.sharedItemId || food.sharedAccepted) return;
 
       if (!partner.linked) {
         toast.error("연결된 메이트가 없어요.");
@@ -662,10 +678,20 @@ export const useDiet = create<DietState>((set, get) => {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.error ?? `요청 실패 (${res.status})`);
 
-        get().updateFood(meal, id, { sharedItemId: undefined });
-        toast.success(
-          json?.alreadyGone ? "메이트가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
-        );
+        if (json?.accepted) {
+          /*
+           * 사본은 상대 기록에 그대로 남아 있다. 여기서 sharedItemId 까지 지우면
+           * 버튼이 "보내기"로 돌아가, 한 번 더 누르는 순간 같은 음식이 중복으로
+           * 다시 간다. 연동은 유지하고 담김으로 확정만 한다.
+           */
+          get().updateFood(meal, id, { sharedAccepted: true });
+          toast.info("메이트가 이미 담은 항목이라 그쪽 기록에는 남아 있어요.");
+        } else {
+          get().updateFood(meal, id, { sharedItemId: undefined });
+          toast.success(
+            json?.alreadyGone ? "메이트가 이미 지운 항목이에요." : "연동을 되돌렸어요.",
+          );
+        }
         void get().loadPartner(date);
       } catch (e) {
         toast.error(`되돌리기 실패: ${errText(e)}`);

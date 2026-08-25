@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, DB_DISABLED_RESPONSE } from "@/lib/server/db";
 import { getSessionUser } from "@/lib/server/session";
-import { getPartnerId } from "@/lib/server/couple";
+import { getPartnerId } from "@/lib/server/partner";
 import { dayLogToRow, isValidDate, rowToDayLog } from "@/lib/server/rows";
 import { MEAL_TYPES, emptyDayLog } from "@/lib/types";
 import type { FoodItem, MealType } from "@/lib/types";
@@ -61,6 +61,8 @@ function sanitizeFood(
     source: f.source === "ai" || f.source === "db" ? f.source : "manual",
     // 사본에는 sharedItemId 를 붙이지 않는다 — 연동의 연동은 만들지 않는다.
     sharedFrom: from,
+    // 받는 쪽이 담기를 누르기 전까지는 그쪽 합계에 들어가지 않는다.
+    pending: true,
   };
 }
 
@@ -68,8 +70,9 @@ function sanitizeFood(
  * POST /api/partner/share
  * body: { date, meal, food }
  *
- * 내가 먹은 것을 파트너의 같은 날짜·같은 끼니에 사본으로 넣는다.
- * 사본은 그 순간부터 상대의 기록이다 — 상대가 지워도 내 것은 남고, 그 반대도 같다.
+ * 내가 먹은 것을 메이트의 같은 날짜·같은 끼니에 제안으로 넣는다.
+ * 사본은 그 순간부터 상대의 기록이지만 pending 이라 상대가 담기를 누르기 전까지
+ * 어떤 합계에도 들어가지 않는다. 상대가 지워도 내 것은 남고, 그 반대도 같다.
  */
 export async function POST(req: NextRequest) {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
@@ -202,6 +205,16 @@ export async function DELETE(req: NextRequest) {
   // 내가 보낸 것만 지울 수 있다. 상대가 직접 적은 음식은 건드리지 못한다.
   if (target.sharedFrom?.userId !== user.id) {
     return NextResponse.json({ error: "되돌릴 수 없는 항목입니다" }, { status: 403 });
+  }
+
+  /*
+   * 상대가 이미 담기를 눌렀으면 그 항목은 그 순간부터 상대의 기록이다.
+   * 보낸 사람이 나중에 뽑아 가면 상대의 하루 합계가 본인 조작 없이 줄어든다.
+   * 여기서는 지우지 않고, 보낸 쪽의 연동 표시만 풀도록 알려준다.
+   */
+  // pending 이 아예 없는 것(이 기능 이전 항목)은 예전처럼 되돌릴 수 있어야 한다.
+  if (target.pending === false) {
+    return NextResponse.json({ ok: true, accepted: true });
   }
 
   const next = {

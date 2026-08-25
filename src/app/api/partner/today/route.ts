@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, DB_DISABLED_RESPONSE } from "@/lib/server/db";
 import { getSessionUser } from "@/lib/server/session";
-import { getPartnerId } from "@/lib/server/couple";
+import { getPartnerId } from "@/lib/server/partner";
 import { isValidDate, rowToDayLog, rowToProfile, rowToSettings } from "@/lib/server/rows";
 import { resolveTargets } from "@/lib/nutrition";
-import { emptyDayLog } from "@/lib/types";
+import { emptyDayLog, isWithinScope } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,10 @@ export const dynamic = "force-dynamic";
  * 목표 칼로리·영양소는 함께 내려준다. 상대가 얼마나 먹었는지만 알고 목표를 모르면
  * 진행률을 그릴 수 없어 "많이 먹었다"를 판단할 기준이 사라진다.
  * 체중은 여전히 공유하지 않는다.
+ *
+ * 상대가 공개 범위를 좁혀 두었으면 그 밖의 날짜는 빈 기록으로 내려보낸다.
+ * 여기서 204 를 쓰면 안 된다 — 클라이언트는 그것을 "연결 없음"으로 읽어
+ * 연결 자체가 끊긴 것처럼 보인다.
  */
 export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json(DB_DISABLED_RESPONSE, { status: 503 });
@@ -53,8 +57,12 @@ export async function GET(req: NextRequest) {
   const settings = rowToSettings(userRes.data);
   const targets = profile ? resolveTargets(profile, settings ?? undefined) : null;
 
+  // 상대가 정한 범위 밖이면 내용은 비우고, 왜 비었는지만 알려준다.
+  const outOfScope = !isWithinScope(date, settings?.shareScope);
+
   return NextResponse.json({
-    ...log,
+    ...(outOfScope ? emptyDayLog(date) : log),
+    outOfScope,
     // 파트너 체중은 공유하지 않는다.
     weightKg: undefined,
     partnerId,

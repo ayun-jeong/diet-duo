@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "DietDuo — 식단 기록",
     short_name: "DietDuo",
     description:
-      "식단을 기록하면 칼로리·영양성분을 자동 계산하고, 물 섭취와 운동을 함께 관리합니다.",
+      "둘이서 식단을 기록하면 칼로리·영양성분을 자동 계산하고, 서로의 하루를 나란히 볼 수 있어요.",
     start_url: "/",
     scope: "/",
     display: "standalone",

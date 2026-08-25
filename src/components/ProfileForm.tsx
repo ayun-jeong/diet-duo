@@ -16,7 +16,7 @@ import type {
   Sex,
   UserProfile,
 } from "@/lib/types";
-import CoupleSetup from "./CoupleSetup";
+import PartnerLink from "./PartnerLink";
 import SafeSection from "./SafeSection";
 
 const ACTIVITIES = Object.keys(ACTIVITY_LABELS) as ActivityLevel[];
@@ -276,7 +276,7 @@ export default function ProfileForm({ onDone }: Props) {
       여기 남는 건 한 번 하고 끝나는 "연결" 설정뿐이다.
     */}
     <SafeSection label="메이트 연결">
-      <CoupleSetup />
+      <PartnerLink />
     </SafeSection>
     </div>
   );

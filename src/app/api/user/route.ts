@@ -50,7 +50,23 @@ export async function PUT(req: NextRequest) {
   };
   if (user.name) payload.display_name = user.name;
   if (body.profile) Object.assign(payload, profileToRow(body.profile));
-  if (body.settings) payload.settings = body.settings;
+  /*
+   * settings 는 jsonb 한 칸이라 통째로 교체된다. 그런데 보내는 쪽은 자기 메모리에
+   * 있는 설정 전부를 싣고, 그 메모리는 부트스트랩 시점의 것이다. 다른 기기나
+   * 오래 열어 둔 탭이 물 목표 하나만 저장해도 그 사이 켜 둔 shareScope 가 통째로
+   * 사라진다 — 그리고 값이 없으면 전체 공개다. 지는 방향이 여는 방향이면 안 되므로
+   * 서버에서 기존 값 위에 덮는다.
+   */
+  if (body.settings) {
+    const { data: prev } = await db
+      .from("app_users")
+      .select("settings")
+      .eq("id", user.id)
+      .maybeSingle();
+    const existing =
+      prev?.settings && typeof prev.settings === "object" ? prev.settings : {};
+    payload.settings = { ...existing, ...body.settings };
+  }
   if (Array.isArray(body.favorites)) payload.favorites = body.favorites;
   if (typeof body.memo === "string") {
     if (body.memo.length > MEMO_MAX) {

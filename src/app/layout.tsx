@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "DietDuo — 식단 기록",
   description:
-    "식단을 기록하면 칼로리·영양성분을 자동 계산하고 물 섭취와 목표 칼로리를 관리합니다.",
+    "둘이서 식단을 기록하면 칼로리·영양성분을 자동 계산하고, 서로의 하루를 나란히 볼 수 있어요. 친구·가족 누구와도.",
   // 홈 화면에 추가했을 때 주소창 없이 전체화면으로 뜨게 한다 (iOS)
   appleWebApp: {
     capable: true,
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   // 카톡 등으로 링크 공유 시 미리보기
   openGraph: {
     title: "DietDuo — 식단 기록",
-    description: "먹은 걸 적으면 칼로리가 자동으로 계산됩니다.",
+    description: "둘이서 적고 나란히 봅니다. 먹은 걸 적으면 칼로리가 자동으로 계산돼요.",
     type: "website",
     locale: "ko_KR",
   },

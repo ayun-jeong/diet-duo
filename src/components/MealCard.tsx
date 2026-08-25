@@ -27,7 +27,7 @@ import { useAuth } from "@/lib/auth-store";
 import { useDiet, usePartnerName } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
 import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
-import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
+import { MEAL_LABELS, isCounted, type FoodItem, type MealType } from "@/lib/types";
 import type { FavoriteFood } from "@/lib/types";
 
 const MEAL_ICONS: Record<MealType, React.ReactNode> = {
@@ -116,8 +116,9 @@ export default function MealCard({ meal }: Props) {
   const fetchRecommend = async (refresh = false) => {
     setRecLoading(true);
     if (refresh) setRecItems([]);
+    // 아직 담지 않은 제안은 내가 먹은 것이 아니다 — 추천 근거에서 뺀다.
     const eatenFoods = (["breakfast", "lunch", "dinner", "snack"] as MealType[])
-      .flatMap((m) => log.meals[m].map((f) => f.name));
+      .flatMap((m) => log.meals[m].filter(isCounted).map((f) => f.name));
     try {
       const res = await fetch(apiUrl("/api/food/recommend"), {
         method: "POST",
@@ -155,7 +156,7 @@ export default function MealCard({ meal }: Props) {
     setShowRec(false);
   };
 
-  const subtotal = items.reduce((s, f) => s + f.kcal, 0);
+  const subtotal = items.filter(isCounted).reduce((s, f) => s + f.kcal, 0);
 
   const favByName = (name: string) =>
     favorites.find((f) => f.name.toLowerCase() === name.toLowerCase());
@@ -185,8 +186,22 @@ export default function MealCard({ meal }: Props) {
    * 보내는 순간 사본이 만들어지고 그때부터는 상대의 기록이다.
    * 상대가 지워도 내 것은 그대로 남고, 내가 되돌려도 내 기록은 건드리지 않는다.
    */
+  /**
+   * 메이트가 보내온 제안을 내 기록으로 받아들인다.
+   *
+   * 항목은 이미 내 기록 안에 들어와 있으므로 서버를 다시 부를 필요가 없다 —
+   * pending 만 걷어내면 그 순간부터 합계에 들어간다. 거절은 평소 삭제와 같고,
+   * 지워지면 보낸 쪽의 "보냄" 표시도 다음 조회에서 저절로 풀린다.
+   */
+  const acceptShared = (food: FoodItem) => {
+    // undefined 로 두면 JSON 직렬화에서 키째 사라져 옛 항목과 구분되지 않는다.
+    void updateFood(meal, food.id, { pending: false });
+    toast.success(`${food.name} 담았어요`);
+  };
+
   const toggleShare = async (food: FoodItem) => {
-    if (sharingId) return;
+    // 상대가 담아 자기 기록이 된 항목은 이쪽에서 더 할 일이 없다.
+    if (sharingId || food.sharedAccepted) return;
     setSharingId(food.id);
     try {
       if (food.sharedItemId) await unshareFood(meal, food.id);
@@ -441,7 +456,11 @@ export default function MealCard({ meal }: Props) {
             // 일반 행
             <li
               key={food.id}
-              className="group flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2"
+              className={`group flex items-center gap-2 rounded-xl px-3 py-2 ${
+                food.pending
+                  ? "border border-dashed border-indigo-200 bg-indigo-50/40"
+                  : "bg-gray-50"
+              }`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-1.5">
@@ -473,81 +492,116 @@ export default function MealCard({ meal }: Props) {
                       {food.sharedFrom.userId === partner.id
                         ? partnerName
                         : food.sharedFrom.name}{" "}
-                      보냄
+                      {food.pending ? "추천" : "보냄"}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* 기본: kcal만 표시 (데스크탑, hover 전) */}
-              <span className="hidden shrink-0 text-sm font-semibold text-gray-700 sm:inline sm:group-hover:hidden">
-                {food.kcal}
-              </span>
-
-              {/* 버튼들: 모바일 항상 표시 / 데스크탑 hover 시 표시 */}
-              <div className="flex shrink-0 items-center gap-0.5 sm:hidden sm:group-hover:flex">
-                <span className="mr-1 text-xs font-semibold text-gray-500">{food.kcal}</span>
-                {/* 편집 */}
-                <button
-                  onClick={() => startEdit(food)}
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
-                  aria-label="수정"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                {/* 즐겨찾기 */}
-                <button
-                  onClick={() => toggleFavorite(food)}
-                  className="rounded-md p-1 hover:bg-amber-50"
-                  aria-label="즐겨찾기"
-                >
-                  <Star
-                    className={`h-3.5 w-3.5 ${
-                      favByName(food.name)
-                        ? "fill-amber-400 text-amber-400"
-                        : "text-gray-300 hover:text-amber-400"
-                    }`}
-                  />
-                </button>
-                {/* 메이트 식단에 연동 (연결됐을 때만) */}
-                {user && partner.linked && (
+              {food.pending ? (
+                /*
+                  아직 담지 않은 제안 — 고를 것은 담기와 아니요 둘뿐이다.
+                  수정·즐겨찾기·되보내기를 여기 두면 남이 보낸 것을 내가 고쳐서
+                  내 기록으로 만드는 셈이라 출처가 흐려진다.
+                */
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="text-xs font-semibold text-gray-400">
+                    {food.kcal}
+                  </span>
                   <button
-                    onClick={() => toggleShare(food)}
-                    disabled={sharingId === food.id}
-                    className={`rounded-md p-1 transition disabled:opacity-50 ${
-                      food.sharedItemId
-                        ? "text-indigo-500 hover:bg-indigo-50"
-                        : "text-gray-300 hover:bg-indigo-50 hover:text-indigo-400"
-                    }`}
-                    aria-label={
-                      food.sharedItemId
-                        ? `${partnerName}의 식단에서 빼기`
-                        : `${partnerName}의 식단에도 넣기`
-                    }
-                    title={
-                      food.sharedItemId
-                        ? `${partnerName}에게 보냄 — 눌러서 되돌리기`
-                        : `${partnerName}의 식단에도 넣기`
-                    }
+                    onClick={() => acceptShared(food)}
+                    className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
                   >
-                    {sharingId === food.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : food.sharedItemId ? (
-                      <Undo2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Share2 className="h-3.5 w-3.5" />
-                    )}
+                    <Check className="h-3 w-3" /> 담기
                   </button>
-                )}
-                {/* 삭제 */}
-                <button
-                  onClick={() => removeFood(meal, food.id)}
-                  className="rounded-md p-1 text-gray-300 hover:bg-rose-50 hover:text-rose-500"
-                  aria-label="삭제"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+                  <button
+                    onClick={() => removeFood(meal, food.id)}
+                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  >
+                    아니요
+                  </button>
+                </div>
+              ) : (
+                <>
+                {/* 기본: kcal만 표시 (데스크탑, hover 전) */}
+                <span className="hidden shrink-0 text-sm font-semibold text-gray-700 sm:inline sm:group-hover:hidden">
+                  {food.kcal}
+                </span>
+
+                {/* 버튼들: 모바일 항상 표시 / 데스크탑 hover 시 표시 */}
+                <div className="flex shrink-0 items-center gap-0.5 sm:hidden sm:group-hover:flex">
+                  <span className="mr-1 text-xs font-semibold text-gray-500">{food.kcal}</span>
+                  {/* 편집 */}
+                  <button
+                    onClick={() => startEdit(food)}
+                    className="rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                    aria-label="수정"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  {/* 즐겨찾기 */}
+                  <button
+                    onClick={() => toggleFavorite(food)}
+                    className="rounded-md p-1 hover:bg-amber-50"
+                    aria-label="즐겨찾기"
+                  >
+                    <Star
+                      className={`h-3.5 w-3.5 ${
+                        favByName(food.name)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-gray-300 hover:text-amber-400"
+                      }`}
+                    />
+                  </button>
+                  {/* 메이트 식단에 연동 (연결됐을 때만) */}
+                  {user && partner.linked && (
+                    <button
+                      onClick={() => toggleShare(food)}
+                      disabled={sharingId === food.id || !!food.sharedAccepted}
+                      className={`rounded-md p-1 transition disabled:opacity-50 ${
+                        food.sharedAccepted
+                          ? "cursor-default text-indigo-400"
+                          : food.sharedItemId
+                            ? "text-indigo-500 hover:bg-indigo-50"
+                            : "text-gray-300 hover:bg-indigo-50 hover:text-indigo-400"
+                      }`}
+                      aria-label={
+                        food.sharedAccepted
+                          ? `${partnerName}이 담음`
+                          : food.sharedItemId
+                            ? `${partnerName}의 식단에서 빼기`
+                            : `${partnerName}의 식단에도 넣기`
+                      }
+                      title={
+                        food.sharedAccepted
+                          ? `${partnerName}이 담았어요 — 그쪽 기록이라 되돌릴 수 없어요`
+                          : food.sharedItemId
+                            ? `${partnerName}에게 보냄 — 눌러서 되돌리기`
+                            : `${partnerName}의 식단에도 넣기`
+                      }
+                    >
+                      {sharingId === food.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : food.sharedAccepted ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : food.sharedItemId ? (
+                        <Undo2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Share2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                  {/* 삭제 */}
+                  <button
+                    onClick={() => removeFood(meal, food.id)}
+                    className="rounded-md p-1 text-gray-300 hover:bg-rose-50 hover:text-rose-500"
+                    aria-label="삭제"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                </>
+              )}
             </li>
           ),
         )}
