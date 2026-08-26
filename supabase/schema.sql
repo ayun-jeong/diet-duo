@@ -88,7 +88,7 @@ create index if not exists day_logs_user_date_idx on day_logs (user_id, date des
 --
 -- 없어도 되는 부속이다. 이 테이블을 안 만들면 코드가 조용히 인메모리만 쓴다.
 create table if not exists ai_cache (
-  kind        text        not null,          -- 'food' | 'exercise'
+  kind        text        not null,          -- 'food' | 'food100' | 'exercise'
   key         text        not null,          -- 정규화된 질의
   value       jsonb       not null,
   created_at  timestamptz not null default now(),

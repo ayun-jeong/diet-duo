@@ -87,6 +87,37 @@ interface Parsed {
   food: string;  // 수량 제거된 음식명
   grams: number; // 계산할 총 무게 (g)
   amountLabel: string; // 표시용 (e.g. "4개", "200g")
+  /**
+   * 질의에 수량이 실제로 적혀 있었는지.
+   *
+   * 적혀 있으면 grams 를 믿고 100g 당 값으로 환산해 caching 할 수 있다.
+   * 없으면 grams 는 100 이라는 임의의 기본값인데 Gemini 는 그 경우 1인분
+   * (찌개 300~350g) 으로 답한다 — 그 답을 100g 당으로 착각해 나누면
+   * 칼로리가 세 배로 부푼다. 그래서 두 경우를 반드시 갈라야 한다.
+   */
+  explicit: boolean;
+}
+
+/** 100g 당 영양값 — 양이 달라도 이 하나에서 곱해 쓴다 */
+interface Per100 {
+  name: string;
+  kcal: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+}
+
+function scaleFrom(p: Per100, grams: number, amountLabel: string): FoodResult {
+  const ratio = grams / 100;
+  return {
+    name: p.name,
+    amount: amountLabel,
+    kcal: Math.round(p.kcal * ratio),
+    carbs: Math.round(p.carbs * ratio * 10) / 10,
+    protein: Math.round(p.protein * ratio * 10) / 10,
+    fat: Math.round(p.fat * ratio * 10) / 10,
+    source: "ai",
+  };
 }
 
 function parseInput(query: string): Parsed {
@@ -100,7 +131,7 @@ function parseInput(query: string): Parsed {
     const u = gm[2].toLowerCase();
     const grams = u === "kg" ? n * 1000 : u === "l" ? n * 1000 : n;
     const food = query.replace(gm[0], "").trim();
-    return { food, grams, amountLabel: gm[0].trim() };
+    return { food, grams, amountLabel: gm[0].trim(), explicit: true };
   }
 
   // 숫자 + 한국어 단위
@@ -110,7 +141,7 @@ function parseInput(query: string): Parsed {
     const count = parseFloat(ku[1]);
     const unit = ku[2];
     const food = query.replace(ku[0], "").trim();
-    return { food, grams: calcGrams(food, unit, count), amountLabel: ku[0].trim() };
+    return { food, grams: calcGrams(food, unit, count), amountLabel: ku[0].trim(), explicit: true };
   }
 
   // 한글 수사 + 한국어 단위 (한 개, 두 인분 …)
@@ -120,11 +151,11 @@ function parseInput(query: string): Parsed {
     const count = korNums[kn[1]] ?? 1;
     const unit = kn[2];
     const food = query.replace(kn[0], "").trim();
-    return { food, grams: calcGrams(food, unit, count), amountLabel: kn[0].trim() };
+    return { food, grams: calcGrams(food, unit, count), amountLabel: kn[0].trim(), explicit: true };
   }
 
   // 수량 없음 → 100g 기본
-  return { food: query.trim(), grams: 100, amountLabel: "100g" };
+  return { food: query.trim(), grams: 100, amountLabel: "100g", explicit: false };
 }
 
 function calcGrams(food: string, unit: string, count: number): number {
@@ -331,7 +362,7 @@ export async function POST(req: Request) {
   }
 
   // 1순위: 로컬 식재료 테이블 (올리브유, 간장 등 기본 식재료)
-  const { food: parsedFood, grams, amountLabel } = parseInput(query);
+  const { food: parsedFood, grams, amountLabel, explicit } = parseInput(query);
   const localResult = lookupLocal(parsedFood, grams, amountLabel);
   if (localResult) return NextResponse.json(localResult);
 
@@ -340,13 +371,48 @@ export async function POST(req: Request) {
   // 식약처 공공 DB 조회 단계는 제거했다. 영양값은 전부 AI 가 추정한다.
   // (LOCAL_INGREDIENTS 는 조미료·기름처럼 AI 추정이 흔들리는 기본 식재료만
   //  담은 코드 내 상수 테이블이라 그대로 둔다.)
-  const cacheKey = normalizeKey(query);
-  const cached = await cacheGet<FoodResult>("food", cacheKey);
-  if (cached) return NextResponse.json(cached);
+  /*
+   * 수량이 적힌 질의는 100g 당 값 하나로 모은다.
+   *
+   * "김치찌개 150g" 과 "김치찌개 320g" 은 같은 음식이라 매번 물을 이유가 없다.
+   * 곱하기만 하면 되므로 양이 달라져도 재호출이 없고, 같은 음식이면 언제나
+   * 정확히 비례한다 (지금은 따로 물어서 AI 노이즈로 어긋날 수 있다).
+   *
+   * 수량이 없는 질의는 이 길로 보내지 않는다 — grams 가 임의의 100 이라
+   * 1인분로 답한 값을 100g 당으로 착각하게 된다.
+   */
+  const canScale = explicit && grams > 0;
+  const per100Key = normalizeKey(parsedFood);
+  const servingKey = normalizeKey(query);
+
+  if (canScale) {
+    const per100 = await cacheGet<Per100>("food100", per100Key);
+    if (per100) return NextResponse.json(scaleFrom(per100, grams, amountLabel));
+  } else {
+    const cached = await cacheGet<FoodResult>("food", servingKey);
+    if (cached) return NextResponse.json(cached);
+  }
 
   const aiResult = await lookupGemini(query, geminiKey);
   if (aiResult) {
-    await cacheSet("food", cacheKey, aiResult, !!(await getSessionUser()));
+    const persist = !!(await getSessionUser());
+    if (canScale) {
+      const r = 100 / grams;
+      await cacheSet(
+        "food100",
+        per100Key,
+        {
+          name: aiResult.name,
+          kcal: aiResult.kcal * r,
+          carbs: aiResult.carbs * r,
+          protein: aiResult.protein * r,
+          fat: aiResult.fat * r,
+        },
+        persist,
+      );
+    } else {
+      await cacheSet("food", servingKey, aiResult, persist);
+    }
     return NextResponse.json(aiResult);
   }
 
