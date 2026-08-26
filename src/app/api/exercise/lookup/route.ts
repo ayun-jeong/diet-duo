@@ -79,6 +79,18 @@ const LOCAL_EXERCISES: [RegExp, number, string][] = [
 ];
 
 // "30분", "1시간", "1시간 30분", "45분" 등을 시간(h)으로 변환
+/**
+ * 시간 표현을 걷어내 운동 이름만 남긴다 — 캐시 키에 쓴다.
+ * "수영 30분" 과 "수영 43분" 은 같은 운동이므로 같은 칸을 봐야 한다.
+ */
+function stripDuration(query: string): string {
+  return query
+    .replace(/(\d+(?:\.\d+)?)\s*시간\s*(\d+)\s*분/g, " ")
+    .replace(/(\d+(?:\.\d+)?)\s*시간/g, " ")
+    .replace(/(\d+)\s*분/g, " ")
+    .trim();
+}
+
 function parseDuration(query: string): { hours: number; label: string } | null {
   // 시간+분 복합: "1시간 30분"
   const hmMatch = query.match(/(\d+(?:\.\d+)?)\s*시간\s*(\d+)\s*분/);
@@ -202,10 +214,28 @@ export async function POST(req: Request) {
   const local = lookupLocal(query, weightKg);
   if (local) return NextResponse.json(local);
 
-  // 2) 캐시 확인 — 소모 칼로리는 체중에 비례하므로 체중도 키에 넣는다
-  const cacheKey = `${normalizeKey(query)}-${Math.round(weightKg)}`;
-  const cached = await cacheGet<ExerciseResult>("exercise", cacheKey);
-  if (cached) return NextResponse.json(cached);
+  /*
+   * 2) 캐시 확인 — 값이 아니라 MET 을 저장한다.
+   *
+   * 소모 칼로리는 MET × 체중 × 시간이라 시간과 체중에 정비례한다. 결과값을
+   * 그대로 캐시하면 "수영 30분" 과 "수영 43분" 이 서로 다른 칸이 되어 매번
+   * 다시 묻게 된다. 변하지 않는 것은 운동 자체의 MET 뿐이므로 그것만 남기고
+   * 나머지는 여기서 곱한다 — 시간이 달라져도, 체중이 바뀌어도 재호출이 없다.
+   */
+  const dur = parseDuration(query);
+  const cacheKey = normalizeKey(stripDuration(query));
+  const cached =
+    dur && dur.hours > 0
+      ? await cacheGet<{ met: number; name: string }>("exercise", cacheKey)
+      : null;
+
+  if (cached && dur) {
+    return NextResponse.json({
+      name: cached.name,
+      duration: dur.label,
+      burned: Math.round(cached.met * weightKg * dur.hours),
+    });
+  }
 
   // 3) Gemini (503/429 시 4초 후 재시도 1회)
   try {
@@ -227,7 +257,16 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    await cacheSet("exercise", cacheKey, parsed, !!(await getSessionUser()));
+    // 응답에는 소모 칼로리만 오므로 MET 을 역산해 둔다.
+    if (dur && dur.hours > 0 && weightKg > 0) {
+      const met = parsed.burned / (weightKg * dur.hours);
+      await cacheSet(
+        "exercise",
+        cacheKey,
+        { met, name: parsed.name },
+        !!(await getSessionUser()),
+      );
+    }
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("exercise lookup error", err);
