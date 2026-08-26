@@ -24,30 +24,39 @@ const MEAL_LABEL: Record<MealType, string> = {
   snack: "간식/음료",
 };
 
-// 인메모리 캐시 (mealType + 남은 칼로리 100kcal 단위로 버킷)
+// 인메모리 캐시 (mealType + 끼니 예산 50kcal 단위로 버킷)
 const cache = new Map<string, RecommendItem[]>();
+
+/**
+ * 한 끼니 예산의 상한.
+ *
+ * 클라이언트가 실수로 하루치를 보내도 사람이 한 끼에 못 먹는 값을
+ * 요청하지 않게 막는다. 예전에 정확히 그 사고가 났다 — 하루 남은
+ * 2000kcal 이 그대로 넘어와 1100~1700kcal 짜리 아침이 추천됐다.
+ */
+const MAX_MEAL_KCAL = 1200;
 
 export async function POST(req: Request) {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!geminiKey) return NextResponse.json({ error: "API 키 없음" }, { status: 500 });
 
   let mealType: MealType = "dinner";
-  let remainingKcal = 600;
+  let mealKcal = 500;
   let eatenFoods: string[] = [];
   let refresh = false;
 
   try {
     const body = await req.json();
     mealType = body.mealType ?? "dinner";
-    remainingKcal = Math.max(0, Number(body.remainingKcal) || 0);
+    mealKcal = Math.min(MAX_MEAL_KCAL, Math.max(0, Number(body.mealKcal) || 0));
     eatenFoods = Array.isArray(body.eatenFoods) ? body.eatenFoods.slice(0, 20) : [];
     refresh = Boolean(body.refresh);
   } catch {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
 
-  // 버킷 단위 캐시 (남은 칼로리 100kcal 단위), refresh=true면 캐시 무시
-  const bucket = Math.round(remainingKcal / 100) * 100;
+  // 버킷 단위 캐시 (끼니 예산 50kcal 단위), refresh=true면 캐시 무시
+  const bucket = Math.round(mealKcal / 50) * 50;
   const cacheKey = `${mealType}-${bucket}`;
   if (!refresh) {
     const cached = cache.get(cacheKey);
@@ -60,12 +69,12 @@ export async function POST(req: Request) {
   const eatenStr = eatenFoods.length > 0 ? eatenFoods.join(", ") : "없음";
 
   const targetKcal =
-    remainingKcal < 200 ? `${remainingKcal}kcal 이하 가벼운 메뉴`
-    : remainingKcal < 400 ? `${Math.round(remainingKcal * 0.7)}~${remainingKcal}kcal`
-    : `${Math.round(remainingKcal * 0.55)}~${Math.round(remainingKcal * 0.85)}kcal`;
+    mealKcal < 200 ? `${mealKcal}kcal 이하 가벼운 메뉴`
+    : mealKcal < 400 ? `${Math.round(mealKcal * 0.7)}~${mealKcal}kcal`
+    : `${Math.round(mealKcal * 0.55)}~${Math.round(mealKcal * 0.85)}kcal`;
 
   const prompt = `끼니: ${label}
-오늘 남은 칼로리: ${remainingKcal}kcal
+이 끼니에 쓸 수 있는 칼로리: ${mealKcal}kcal
 이미 먹은 음식: ${eatenStr}
 
 아래 조건에 맞는 메뉴 4가지를 추천해줘.

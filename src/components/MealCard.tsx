@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import { useDiet, usePartnerName } from "@/lib/store";
 import { apiUrl } from "@/lib/api";
-import { resolveTargets, sumDayTotals } from "@/lib/nutrition";
+import { mealBudgetKcal, resolveTargets, sumDayTotals } from "@/lib/nutrition";
 import { MEAL_LABELS, type FoodItem, type MealType } from "@/lib/types";
 import type { FavoriteFood } from "@/lib/types";
 
@@ -101,16 +101,20 @@ export default function MealCard({ meal }: Props) {
   const settings = useDiet((s) => s.settings);
   const log = useDiet((s) => s.log);
 
-  const remainingKcal = (() => {
-    if (!profile) return 600;
-    const target = resolveTargets(profile, settings);
-    const totals = sumDayTotals(log);
+  /*
+   * 추천에 넘길 것은 하루가 아니라 이 끼니의 예산이다.
+   * 하루치를 넘기면 서버가 그 값의 55~85% 를 한 끼로 요청해서,
+   * 목표 2000 에 아침이 비어 있으면 1100~1700kcal 짜리 아침이 나온다.
+   */
+  const mealKcal = (() => {
+    if (!profile) return 500;
     const stepsBurned = (log.steps ?? 0) > 0
       ? Math.round((log.steps ?? 0) * profile.weightKg * 0.0005)
       : 0;
     const exerciseBurned = log.exercises.reduce((s, e) => s + e.burned, 0);
-    const effectiveTarget = target.kcal + stepsBurned + exerciseBurned;
-    return Math.max(0, effectiveTarget - totals.kcal);
+    const effectiveTarget =
+      resolveTargets(profile, settings).kcal + stepsBurned + exerciseBurned;
+    return mealBudgetKcal(log, effectiveTarget, meal);
   })();
 
   const fetchRecommend = async (refresh = false) => {
@@ -122,7 +126,7 @@ export default function MealCard({ meal }: Props) {
       const res = await fetch(apiUrl("/api/food/recommend"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mealType: meal, remainingKcal, eatenFoods, refresh }),
+        body: JSON.stringify({ mealType: meal, mealKcal, eatenFoods, refresh }),
       });
       const data = await res.json();
       if (Array.isArray(data)) setRecItems(data);
@@ -289,7 +293,7 @@ export default function MealCard({ meal }: Props) {
           <div className="mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1 text-[11px] font-semibold text-violet-500">
               <Wand2 className="h-3 w-3" />
-              남은 {remainingKcal.toLocaleString()}kcal 기준 추천
+              {MEAL_LABELS[meal]} {mealKcal.toLocaleString()}kcal 기준 추천
             </span>
             <button
               onClick={() => fetchRecommend(true)}

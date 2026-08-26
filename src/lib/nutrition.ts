@@ -1,10 +1,45 @@
+import { MEAL_TYPES } from "./types";
 import type {
   ActivityLevel,
   AppSettings,
   DayLog,
   Goal,
+  MealType,
   UserProfile,
 } from "./types";
+
+/**
+ * 끼니별 칼로리 비중.
+ *
+ * 공식 기준에는 끼니별 칼로리 비율 규정이 **없다**. 2020 한국인 영양소
+ * 섭취기준은 "끼니"·"배분"·"간식"이라는 말 자체가 안 나오고, 식사구성안의
+ * 지시문은 "세 끼니에 적절하게 배분합니다"가 전부다. WHO·미국 DGA·EFSA·
+ * 북유럽 NNR 도 같고, 북유럽은 검토 끝에 권고 설정을 명시적으로 거부했다.
+ * 돌아다니는 비율 숫자들은 전부 "사람들이 이렇게 먹더라"는 관찰 평균이지
+ * 처방이 아니다.
+ *
+ * 그래서 세 끼는 균등하게 두고 간식만 덜어낸다. 이 값이 한국 공식 자료와
+ * 그나마 맞는 유일한 조합이다 — 학교급식법 시행규칙 별표3 이 점심을 1일
+ * 에너지필요량의 정확히 1/3 로 잡고(전 학년·성별 구간 33.3~33.6%),
+ * 식사구성안 공식 예시 식단을 역산하면 약 30/30/29/12 가 나온다.
+ *
+ * 비율을 더 정교하게 고를 이유는 없다. 등열량 조건에서 45/35/20 과
+ * 20/35/45 를 비교한 실험에서도 체중 차이가 0.05kg 이었다 — 여기서 고르는
+ * 차이는 문헌이 구분하지 못하는 영역이고, 메뉴 칼로리 추정 오차에 묻힌다.
+ *
+ * 다만 간식 10% 는 이 표에서 가장 약한 숫자다. 실측으로는 성인 하루
+ * 에너지의 20% 를 넘기도 한다. 아래 정규화 구조에서 간식을 작게 잡으면
+ * 다른 끼니가 커지는 게 아니라 여유분이 남는 쪽이라 안전한 방향의 오차다.
+ */
+const MEAL_SHARE: Record<MealType, number> = {
+  breakfast: 0.3,
+  lunch: 0.3,
+  dinner: 0.3,
+  snack: 0.1,
+};
+
+/** 목표를 이미 넘긴 날에도 "그래도 먹는다면 이 정도"를 보여준다 */
+const MIN_MEAL_KCAL = 100;
 
 /** 활동량 계수 */
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
@@ -124,4 +159,34 @@ export function sumDayTotals(log: DayLog): DayTotals {
     protein: Math.round(totals.protein),
     fat: Math.round(totals.fat),
   };
+}
+
+/**
+ * 이 끼니에 쓸 수 있는 칼로리 — AI 메뉴 추천의 기준값.
+ *
+ * 하루 남은 칼로리를 "아직 먹지 않은 끼니"들이 비중대로 나눠 갖는다.
+ * 지금 끼니는 이미 먹었더라도 분모에 넣는다 — 여기에 더 담으려는 참이므로.
+ *
+ * 분모로 나누는 것은 정규화다. 비중은 하루 전체를 1.0 으로 놓은 값인데
+ * 식에 넣는 것은 남은 칼로리라 기준이 어긋난다. 아침을 이미 먹었다면
+ * 남은 1400 을 점심·저녁·간식(비중 합 0.75)이 나눠야 하는데, 나누지 않으면
+ * 1400 × 0.75 = 1050 만 배정되고 350 이 어느 끼니에도 가지 않는다.
+ *
+ * 이전에는 하루 남은 칼로리를 그대로 한 끼니 예산으로 넘겨서, 목표 2000 에
+ * 아침이 비어 있으면 1100~1700kcal 짜리 아침을 추천했다.
+ */
+export function mealBudgetKcal(
+  log: DayLog,
+  effectiveTargetKcal: number,
+  meal: MealType,
+): number {
+  const remaining = Math.max(0, effectiveTargetKcal - sumDayTotals(log).kcal);
+
+  let denom = MEAL_SHARE[meal];
+  for (const m of MEAL_TYPES) {
+    if (m === meal) continue;
+    if ((log.meals[m] ?? []).length === 0) denom += MEAL_SHARE[m];
+  }
+
+  return Math.max(MIN_MEAL_KCAL, Math.round((remaining * MEAL_SHARE[meal]) / denom));
 }
