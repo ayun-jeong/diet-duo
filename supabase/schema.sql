@@ -93,3 +93,4 @@ create table if not exists ai_cache (
 );
 
 alter table ai_cache enable row level security;
+

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { cacheDelete, cacheGet, cacheSet } from "@/lib/server/ai-cache";
+import { getSessionUser } from "@/lib/server/session";
 import type { MealType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
         throw e;
       }
     }
-    await cacheSet("recommend", cacheKey, items);
+    await cacheSet("recommend", cacheKey, items, !!(await getSessionUser()));
     return NextResponse.json(items);
   } catch (e) {
     console.error("[Recommend error]", e);

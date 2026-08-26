@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { cacheGet, cacheSet, normalizeKey } from "@/lib/server/ai-cache";
+import { getSessionUser } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
@@ -226,7 +227,7 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    await cacheSet("exercise", cacheKey, parsed);
+    await cacheSet("exercise", cacheKey, parsed, !!(await getSessionUser()));
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("exercise lookup error", err);

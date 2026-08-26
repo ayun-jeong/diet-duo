@@ -80,10 +80,24 @@ export async function cacheGet<T>(kind: string, key: string): Promise<T | null> 
   return data.value as T;
 }
 
-export async function cacheSet(kind: string, key: string, value: unknown): Promise<void> {
+/**
+ * 캐시에 저장한다.
+ *
+ * persist 는 "이 결과를 DB 에도 남길지"다. AI 라우트는 로그인 없이도 쓸 수
+ * 있고 주소가 공개돼 있어서, 아무나 임의의 문자열을 반복해 던지면 그게 전부
+ * 영구 행으로 쌓인다. 그래서 **읽기는 누구나, 쓰기는 로그인한 사람만**으로
+ * 나눈다. 비로그인 요청도 인메모리에는 남기므로 같은 인스턴스 안에서는
+ * 그대로 빠르고, 남이 채워 둔 DB 캐시도 그대로 읽는다.
+ */
+export async function cacheSet(
+  kind: string,
+  key: string,
+  value: unknown,
+  persist: boolean,
+): Promise<void> {
   memSet(`${kind}:${key}`, value);
 
-  if (!db || !dbCacheUsable) return;
+  if (!persist || !db || !dbCacheUsable) return;
 
   const { error } = await db
     .from("ai_cache")

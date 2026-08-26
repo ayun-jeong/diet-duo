@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { cacheGet, cacheSet, normalizeKey } from "@/lib/server/ai-cache";
+import { getSessionUser } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
@@ -345,7 +346,7 @@ export async function POST(req: Request) {
 
   const aiResult = await lookupGemini(query, geminiKey);
   if (aiResult) {
-    await cacheSet("food", cacheKey, aiResult);
+    await cacheSet("food", cacheKey, aiResult, !!(await getSessionUser()));
     return NextResponse.json(aiResult);
   }
 
