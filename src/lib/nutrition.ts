@@ -162,15 +162,32 @@ export function sumDayTotals(log: DayLog): DayTotals {
 }
 
 /**
+ * 하루 안에서의 순서. 간식은 아무 때나 먹으므로 순서를 두지 않는다.
+ */
+const MEAL_ORDER: Record<Exclude<MealType, "snack">, number> = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+};
+
+/**
  * 이 끼니에 쓸 수 있는 칼로리 — AI 메뉴 추천의 기준값.
  *
- * 하루 남은 칼로리를 "아직 먹지 않은 끼니"들이 비중대로 나눠 갖는다.
+ * 하루 남은 칼로리를 "앞으로 먹을 끼니"들이 비중대로 나눠 갖는다.
  * 지금 끼니는 이미 먹었더라도 분모에 넣는다 — 여기에 더 담으려는 참이므로.
  *
  * 분모로 나누는 것은 정규화다. 비중은 하루 전체를 1.0 으로 놓은 값인데
  * 식에 넣는 것은 남은 칼로리라 기준이 어긋난다. 아침을 이미 먹었다면
- * 남은 1400 을 점심·저녁·간식(비중 합 0.75)이 나눠야 하는데, 나누지 않으면
- * 1400 × 0.75 = 1050 만 배정되고 350 이 어느 끼니에도 가지 않는다.
+ * 남은 1400 을 점심·저녁·간식(비중 합 0.7)이 나눠야 하는데, 나누지 않으면
+ * 1400 × 0.7 = 980 만 배정되고 420 이 어느 끼니에도 가지 않는다.
+ *
+ * **비어 있는 앞 끼니는 건너뛴 것으로 본다.** 저녁을 물었는데 점심이 비어
+ * 있으면 그 점심은 오지 않는다 — 몫을 남겨두면 남은 400 중 200 만 저녁에
+ * 주고 나머지는 아무도 쓰지 않는다. 대신 아직 안 먹고 미리 구경하는 경우에는
+ * 조금 후하게 잡히는데, 이 앱은 "지금 뭐 먹지"에 쓰는 쪽이라 그 편이 낫다.
+ *
+ * 간식은 순서 밖이라 언제 물어도 남겨두고, 간식을 물을 때는 위치를 알 수
+ * 없으므로 비어 있는 끼니를 모두 남겨둔다.
  *
  * 이전에는 하루 남은 칼로리를 그대로 한 끼니 예산으로 넘겨서, 목표 2000 에
  * 아침이 비어 있으면 1100~1700kcal 짜리 아침을 추천했다.
@@ -185,7 +202,15 @@ export function mealBudgetKcal(
   let denom = MEAL_SHARE[meal];
   for (const m of MEAL_TYPES) {
     if (m === meal) continue;
-    if ((log.meals[m] ?? []).length === 0) denom += MEAL_SHARE[m];
+    if ((log.meals[m] ?? []).length > 0) continue; // 이미 먹음 — 남길 몫이 없다
+
+    const laterOrUnordered =
+      m === "snack" ||
+      meal === "snack" ||
+      MEAL_ORDER[m as Exclude<MealType, "snack">] >
+        MEAL_ORDER[meal as Exclude<MealType, "snack">];
+
+    if (laterOrUnordered) denom += MEAL_SHARE[m];
   }
 
   return Math.max(MIN_MEAL_KCAL, Math.round((remaining * MEAL_SHARE[meal]) / denom));
