@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { cacheDelete, cacheGet, cacheSet } from "@/lib/server/ai-cache";
-import { getSessionUser } from "@/lib/server/session";
 import type { MealType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -112,7 +111,21 @@ export async function POST(req: Request) {
         throw e;
       }
     }
-    await cacheSet("recommend", cacheKey, items, !!(await getSessionUser()));
+    /*
+     * 추천은 DB 에 남기지 않는다 (persist: false).
+     *
+     * 음식 영양값은 "김치찌개 = 360kcal" 같은 사실이라 한 번 물으면 영원히
+     * 같지만, 추천은 제안이라 성격이 다르다.
+     *
+     * 무엇보다 캐시 키가 `끼니-예산버킷` 뿐이라 eatenFoods 가 들어가지 않는다.
+     * 영구 캐시로 두면 캐시가 항상 맞아서 프롬프트의 "이미 먹은 음식과
+     * 겹치지 않게" 가 죽은 지시가 되고, 같은 끼니·같은 예산이면 평생 같은
+     * 메뉴 넷만 나온다.
+     *
+     * 인메모리에는 남긴다 — 패널을 여닫는 동안 같은 요청을 반복해서
+     * 부르지 않게 막는 정도의 짧은 수명이면 충분하다.
+     */
+    await cacheSet("recommend", cacheKey, items, false);
     return NextResponse.json(items);
   } catch (e) {
     console.error("[Recommend error]", e);

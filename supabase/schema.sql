@@ -79,13 +79,16 @@ alter table day_logs enable row level security;
 create index if not exists day_logs_user_date_idx on day_logs (user_id, date desc);
 
 -- ── 4. ai_cache ─────────────────────────────────────────────
--- 음식 영양값·운동 소모량·메뉴 추천은 누가 묻든 같은 답이라 사용자별로 나눌
--- 이유가 없다. 라우트마다 프로세스 메모리 Map 만 쓰던 것을 여기로 옮겨,
--- 콜드스타트와 인스턴스 경계를 넘어 살아남게 한다.
+-- 음식 영양값·운동 소모량은 누가 묻든 같은 답이라 사용자별로 나눌 이유가 없다.
+-- 라우트마다 프로세스 메모리 Map 만 쓰던 것을 여기로 옮겨, 콜드스타트와
+-- 인스턴스 경계를 넘어 살아남게 한다.
+--
+-- 메뉴 추천은 일부러 뺐다. 캐시 키에 '이미 먹은 음식' 이 들어가지 않아서
+-- 영구 캐시로 두면 그 지시가 죽고, 같은 끼니·예산이면 평생 같은 메뉴만 나온다.
 --
 -- 없어도 되는 부속이다. 이 테이블을 안 만들면 코드가 조용히 인메모리만 쓴다.
 create table if not exists ai_cache (
-  kind        text        not null,          -- 'food' | 'exercise' | 'recommend'
+  kind        text        not null,          -- 'food' | 'exercise'
   key         text        not null,          -- 정규화된 질의
   value       jsonb       not null,
   created_at  timestamptz not null default now(),
