@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { cacheDelete, cacheGet, cacheSet } from "@/lib/server/ai-cache";
 import type { MealType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -23,9 +24,6 @@ const MEAL_LABEL: Record<MealType, string> = {
   dinner: "저녁",
   snack: "간식/음료",
 };
-
-// 인메모리 캐시 (mealType + 끼니 예산 50kcal 단위로 버킷)
-const cache = new Map<string, RecommendItem[]>();
 
 /**
  * 한 끼니 예산의 상한.
@@ -59,10 +57,10 @@ export async function POST(req: Request) {
   const bucket = Math.round(mealKcal / 50) * 50;
   const cacheKey = `${mealType}-${bucket}`;
   if (!refresh) {
-    const cached = cache.get(cacheKey);
+    const cached = await cacheGet<RecommendItem[]>("recommend", cacheKey);
     if (cached) return NextResponse.json(cached);
   } else {
-    cache.delete(cacheKey);
+    await cacheDelete("recommend", cacheKey);
   }
 
   const label = MEAL_LABEL[mealType] ?? "식사";
@@ -113,7 +111,7 @@ export async function POST(req: Request) {
         throw e;
       }
     }
-    cache.set(cacheKey, items);
+    await cacheSet("recommend", cacheKey, items);
     return NextResponse.json(items);
   } catch (e) {
     console.error("[Recommend error]", e);

@@ -1,13 +1,11 @@
 export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { cacheGet, cacheSet, normalizeKey } from "@/lib/server/ai-cache";
 
 export const runtime = "nodejs";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-
-// 서버 인메모리 캐시 (프로세스 재시작 전까지 유지, 중복 API 호출 방지)
-const geminiCache = new Map<string, FoodResult>();
 
 const GEMINI_SYSTEM = `너는 한국 음식 영양성분 전문가다.
 사용자가 먹은 음식 설명을 받으면, 그 양 기준의 영양성분을 추정해라.
@@ -341,13 +339,13 @@ export async function POST(req: Request) {
   // 식약처 공공 DB 조회 단계는 제거했다. 영양값은 전부 AI 가 추정한다.
   // (LOCAL_INGREDIENTS 는 조미료·기름처럼 AI 추정이 흔들리는 기본 식재료만
   //  담은 코드 내 상수 테이블이라 그대로 둔다.)
-  const cacheKey = query.trim().toLowerCase();
-  const cached = geminiCache.get(cacheKey);
+  const cacheKey = normalizeKey(query);
+  const cached = await cacheGet<FoodResult>("food", cacheKey);
   if (cached) return NextResponse.json(cached);
 
   const aiResult = await lookupGemini(query, geminiKey);
   if (aiResult) {
-    geminiCache.set(cacheKey, aiResult);
+    await cacheSet("food", cacheKey, aiResult);
     return NextResponse.json(aiResult);
   }
 

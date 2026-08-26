@@ -77,3 +77,19 @@ alter table day_logs enable row level security;
 
 -- 캘린더(한 달)·주간 차트(7일)·체중 추이(30일) 모두 이 인덱스를 탄다.
 create index if not exists day_logs_user_date_idx on day_logs (user_id, date desc);
+
+-- ── 4. ai_cache ─────────────────────────────────────────────
+-- 음식 영양값·운동 소모량·메뉴 추천은 누가 묻든 같은 답이라 사용자별로 나눌
+-- 이유가 없다. 라우트마다 프로세스 메모리 Map 만 쓰던 것을 여기로 옮겨,
+-- 콜드스타트와 인스턴스 경계를 넘어 살아남게 한다.
+--
+-- 없어도 되는 부속이다. 이 테이블을 안 만들면 코드가 조용히 인메모리만 쓴다.
+create table if not exists ai_cache (
+  kind        text        not null,          -- 'food' | 'exercise' | 'recommend'
+  key         text        not null,          -- 정규화된 질의
+  value       jsonb       not null,
+  created_at  timestamptz not null default now(),
+  primary key (kind, key)
+);
+
+alter table ai_cache enable row level security;

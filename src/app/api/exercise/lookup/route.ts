@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { cacheGet, cacheSet, normalizeKey } from "@/lib/server/ai-cache";
 
 export const runtime = "nodejs";
 
@@ -133,7 +134,6 @@ interface ExerciseResult {
 }
 
 // 서버 인메모리 캐시
-const exerciseCache = new Map<string, ExerciseResult>();
 
 function extractJson(text: string): ExerciseResult | null {
   const match = text.match(/\{[\s\S]*?\}/);
@@ -201,9 +201,9 @@ export async function POST(req: Request) {
   const local = lookupLocal(query, weightKg);
   if (local) return NextResponse.json(local);
 
-  // 2) 캐시 확인
-  const cacheKey = `${query.toLowerCase()}-${Math.round(weightKg)}`;
-  const cached = exerciseCache.get(cacheKey);
+  // 2) 캐시 확인 — 소모 칼로리는 체중에 비례하므로 체중도 키에 넣는다
+  const cacheKey = `${normalizeKey(query)}-${Math.round(weightKg)}`;
+  const cached = await cacheGet<ExerciseResult>("exercise", cacheKey);
   if (cached) return NextResponse.json(cached);
 
   // 3) Gemini (503/429 시 4초 후 재시도 1회)
@@ -226,7 +226,7 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    exerciseCache.set(cacheKey, parsed);
+    await cacheSet("exercise", cacheKey, parsed);
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("exercise lookup error", err);
